@@ -15,6 +15,7 @@ import {
   Settings,
   Clock,
   CreditCard,
+  Building2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -30,12 +31,13 @@ const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Resumen", to: "/dashboard" as const },
   { icon: Car, label: "Mis Vehículos", to: "/dashboard/vehicles" as const },
   { icon: ShoppingBag, label: "Marketplace", to: "/dashboard/marketplace" as const },
-  { icon: Clock, label: "Historial", to: "/dashboard/history" as const },
-  { icon: CreditCard, label: "Mis Cuotas", to: "/dashboard/installments" as const },
+  // { icon: Clock, label: "Historial", to: "/dashboard/history" as const },
+  // { icon: CreditCard, label: "Mis Cuotas", to: "/dashboard/installments" as const },
 ];
 
 const WORKSHOP_ITEMS = [
-  { icon: Store, label: "Red Certificada", to: "/dashboard/workshops" as const },
+  { icon: Store, label: "Red de Talleres", to: "/dashboard/workshops" as const },
+  { icon: Building2, label: "Mis Talleres", to: "/dashboard/my-workshops" as const },
 ];
 
 function AuthenticatedLayout() {
@@ -117,10 +119,14 @@ function AuthenticatedLayout() {
         </nav>
 
         <div className="border-t border-border p-4">
-          <button className="cursor-pointer flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground">
+          <Link
+            to="/dashboard/settings"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground"
+          >
             <Settings className="h-4 w-4" />
             Configuración
-          </button>
+          </Link>
           <button
             onClick={logout}
             className="cursor-pointer flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"

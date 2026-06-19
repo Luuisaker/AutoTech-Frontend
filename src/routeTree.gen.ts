@@ -13,7 +13,10 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDashboardWorkshopsRouteImport } from './routes/_authenticated/dashboard/workshops'
 import { Route as AuthenticatedDashboardVehiclesRouteImport } from './routes/_authenticated/dashboard/vehicles'
+import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard/settings'
+import { Route as AuthenticatedDashboardMyWorkshopsRouteImport } from './routes/_authenticated/dashboard/my-workshops'
 import { Route as AuthenticatedDashboardMarketplaceRouteImport } from './routes/_authenticated/dashboard/marketplace'
 
 const AuthRoute = AuthRouteImport.update({
@@ -35,10 +38,28 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDashboardWorkshopsRoute =
+  AuthenticatedDashboardWorkshopsRouteImport.update({
+    id: '/workshops',
+    path: '/workshops',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedDashboardVehiclesRoute =
   AuthenticatedDashboardVehiclesRouteImport.update({
     id: '/vehicles',
     path: '/vehicles',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardSettingsRoute =
+  AuthenticatedDashboardSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardMyWorkshopsRoute =
+  AuthenticatedDashboardMyWorkshopsRouteImport.update({
+    id: '/my-workshops',
+    path: '/my-workshops',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
 const AuthenticatedDashboardMarketplaceRoute =
@@ -53,14 +74,20 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/dashboard/marketplace': typeof AuthenticatedDashboardMarketplaceRoute
+  '/dashboard/my-workshops': typeof AuthenticatedDashboardMyWorkshopsRoute
+  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
+  '/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/dashboard/marketplace': typeof AuthenticatedDashboardMarketplaceRoute
+  '/dashboard/my-workshops': typeof AuthenticatedDashboardMyWorkshopsRoute
+  '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
+  '/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,7 +96,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/_authenticated/dashboard/marketplace': typeof AuthenticatedDashboardMarketplaceRoute
+  '/_authenticated/dashboard/my-workshops': typeof AuthenticatedDashboardMyWorkshopsRoute
+  '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/_authenticated/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
+  '/_authenticated/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -78,14 +108,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/dashboard/marketplace'
+    | '/dashboard/my-workshops'
+    | '/dashboard/settings'
     | '/dashboard/vehicles'
+    | '/dashboard/workshops'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/dashboard'
     | '/dashboard/marketplace'
+    | '/dashboard/my-workshops'
+    | '/dashboard/settings'
     | '/dashboard/vehicles'
+    | '/dashboard/workshops'
   id:
     | '__root__'
     | '/'
@@ -93,7 +129,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/dashboard'
     | '/_authenticated/dashboard/marketplace'
+    | '/_authenticated/dashboard/my-workshops'
+    | '/_authenticated/dashboard/settings'
     | '/_authenticated/dashboard/vehicles'
+    | '/_authenticated/dashboard/workshops'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,11 +171,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/dashboard/workshops': {
+      id: '/_authenticated/dashboard/workshops'
+      path: '/workshops'
+      fullPath: '/dashboard/workshops'
+      preLoaderRoute: typeof AuthenticatedDashboardWorkshopsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
     '/_authenticated/dashboard/vehicles': {
       id: '/_authenticated/dashboard/vehicles'
       path: '/vehicles'
       fullPath: '/dashboard/vehicles'
       preLoaderRoute: typeof AuthenticatedDashboardVehiclesRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/settings': {
+      id: '/_authenticated/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/my-workshops': {
+      id: '/_authenticated/dashboard/my-workshops'
+      path: '/my-workshops'
+      fullPath: '/dashboard/my-workshops'
+      preLoaderRoute: typeof AuthenticatedDashboardMyWorkshopsRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/_authenticated/dashboard/marketplace': {
@@ -151,14 +211,21 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardMarketplaceRoute: typeof AuthenticatedDashboardMarketplaceRoute
+  AuthenticatedDashboardMyWorkshopsRoute: typeof AuthenticatedDashboardMyWorkshopsRoute
+  AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
   AuthenticatedDashboardVehiclesRoute: typeof AuthenticatedDashboardVehiclesRoute
+  AuthenticatedDashboardWorkshopsRoute: typeof AuthenticatedDashboardWorkshopsRoute
 }
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
   {
     AuthenticatedDashboardMarketplaceRoute:
       AuthenticatedDashboardMarketplaceRoute,
+    AuthenticatedDashboardMyWorkshopsRoute:
+      AuthenticatedDashboardMyWorkshopsRoute,
+    AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
     AuthenticatedDashboardVehiclesRoute: AuthenticatedDashboardVehiclesRoute,
+    AuthenticatedDashboardWorkshopsRoute: AuthenticatedDashboardWorkshopsRoute,
   }
 
 const AuthenticatedDashboardRouteWithChildren =
