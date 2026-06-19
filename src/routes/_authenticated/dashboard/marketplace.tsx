@@ -122,7 +122,7 @@ function ProductCard({ product }: { product: (typeof MOCK_PRODUCTS)[0] }) {
           </div>
         </div>
 
-        <button className="mt-6 flex w-full items-center justify-center rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]">
+        <button className="cursor-pointer mt-6 flex w-full items-center justify-center rounded-md bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98]">
           Solicitar financiamiento
         </button>
       </div>

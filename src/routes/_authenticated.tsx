@@ -117,13 +117,13 @@ function AuthenticatedLayout() {
         </nav>
 
         <div className="border-t border-border p-4">
-          <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground">
+          <button className="cursor-pointer flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground">
             <Settings className="h-4 w-4" />
             Configuración
           </button>
           <button
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="cursor-pointer flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
           >
             <LogOut className="h-4 w-4" />
             Cerrar Sesión

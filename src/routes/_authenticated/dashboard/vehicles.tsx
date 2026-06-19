@@ -73,7 +73,7 @@ function VehiclesPage() {
         </div>
         <button
           onClick={() => setDialog("create")}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
           Registrar vehículo
@@ -90,7 +90,7 @@ function VehiclesPage() {
           <p className="text-sm text-muted-foreground">No tienes vehículos registrados</p>
           <button
             onClick={() => setDialog("create")}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
             Registrar vehículo
@@ -180,13 +180,13 @@ function VehicleCard({
           <div className="flex gap-1">
             <button
               onClick={onEdit}
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground"
+              className="cursor-pointer grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground"
             >
               <Pencil className="h-4 w-4" />
             </button>
             <button
               onClick={onDelete}
-              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              className="cursor-pointer grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -357,14 +357,14 @@ function VehicleFormDialog({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-50"
+              className="cursor-pointer rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+              className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {isEditing ? "Guardar cambios" : "Registrar"}
@@ -401,7 +401,7 @@ function DeleteConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-50"
+            className="cursor-pointer rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-surface disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -409,7 +409,7 @@ function DeleteConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-60"
+            className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-60"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Eliminar

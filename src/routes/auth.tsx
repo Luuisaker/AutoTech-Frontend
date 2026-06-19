@@ -71,7 +71,7 @@ function AuthPage() {
           <button
             type="button"
             onClick={() => setMode("login")}
-            className={`flex-1 rounded-sm py-1.5 text-sm font-medium transition-all ${
+            className={`cursor-pointer flex-1 rounded-sm py-1.5 text-sm font-medium transition-all ${
               mode === "login"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -82,7 +82,7 @@ function AuthPage() {
           <button
             type="button"
             onClick={() => setMode("register")}
-            className={`flex-1 rounded-sm py-1.5 text-sm font-medium transition-all ${
+            className={`cursor-pointer flex-1 rounded-sm py-1.5 text-sm font-medium transition-all ${
               mode === "register"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
@@ -130,7 +130,7 @@ function AuthPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+              className="cursor-pointer inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === "login" ? "Ingresar a mi cuenta" : "Comenzar ahora"}
