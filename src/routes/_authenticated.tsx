@@ -6,6 +6,7 @@ import {
   Loader2,
   LayoutDashboard,
   ShoppingBag,
+  ShoppingCart,
   Car,
   Store,
   Menu,
@@ -30,9 +31,9 @@ export const Route = createFileRoute("/_authenticated")({
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Resumen", to: "/dashboard" as const },
   { icon: Car, label: "Mis Vehículos", to: "/dashboard/vehicles" as const },
+  { icon: ShoppingCart, label: "Carrito", to: "/dashboard/cart" as const },
   { icon: ShoppingBag, label: "Marketplace", to: "/dashboard/marketplace" as const },
-  { icon: Clock, label: "Historial", to: "/dashboard/history" as const },
-  { icon: CreditCard, label: "Mis Cuotas", to: "/dashboard/installments" as const },
+  { icon: CreditCard, label: "Órdenes", to: "/dashboard/purchases" as const },
   { icon: Store, label: "Red de Talleres", to: "/dashboard/workshops" as const },
 ];
 

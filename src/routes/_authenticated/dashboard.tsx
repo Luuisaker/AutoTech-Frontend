@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-rout
 import { useQuery } from "@tanstack/react-query";
 import { Car, Store, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
-import { getVehicles, getMyWorkshops, getOrders } from "../../lib/api";
+import { getVehicles, getMyWorkshops, getMyOrders } from "../../lib/api";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardLayout,
@@ -37,8 +37,8 @@ function DashboardPage() {
   });
 
   const { data: orders } = useQuery({
-    queryKey: ["orders"],
-    queryFn: getOrders,
+    queryKey: ["my-orders"],
+    queryFn: getMyOrders,
   });
 
   const isWorkshopOwner = roles.includes("WORKSHOP_OWNER") || roles.includes("ADMIN");
@@ -78,7 +78,7 @@ function DashboardPage() {
           label="Órdenes"
           count={orders?.length ?? 0}
           loading={false}
-          to="/dashboard/installments"
+          to="/dashboard/purchases"
         />
       </div>
 
@@ -137,7 +137,7 @@ function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold">Órdenes Recientes</h2>
             <Link
-              to="/dashboard/installments"
+              to="/dashboard/purchases"
               className="flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
             >
               Ver todas <ArrowRight className="h-3 w-3" />
@@ -181,7 +181,7 @@ function DashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold">Mis Talleres</h2>
             <Link
-              to="/dashboard/workshops"
+              to="/dashboard/my-workshops"
               className="flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
             >
               Gestionar <ArrowRight className="h-3 w-3" />
@@ -231,7 +231,7 @@ function SummaryCard({
 }) {
   return (
     <Link
-      to={to as "/dashboard/vehicles" | "/dashboard/workshops" | "/dashboard/installments"}
+      to={to as "/dashboard/vehicles" | "/dashboard/workshops" | "/dashboard/purchases"}
       className="flex items-center gap-4 rounded-lg border border-border bg-surface p-5 transition-colors hover:border-border-strong"
     >
       <div className="grid h-10 w-10 place-items-center rounded-md border border-border bg-background">
@@ -249,26 +249,16 @@ function SummaryCard({
 
 function OrderBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    PENDING: "border border-amber-500/30 bg-amber-500/10 text-amber-400",
-    PAID: "border border-blue-500/30 bg-blue-500/10 text-blue-400",
+    PAID: "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
     FINANCED: "border border-purple-500/30 bg-purple-500/10 text-purple-400",
-    COMPLETED: "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
     CANCELLED: "border border-red-500/30 bg-red-500/10 text-red-400",
   };
 
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${styles[status] || styles.PENDING}`}
+      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${styles[status] || styles.FINANCED}`}
     >
-      {status === "PENDING"
-        ? "Pendiente"
-        : status === "PAID"
-          ? "Pagada"
-          : status === "FINANCED"
-            ? "Financiada"
-            : status === "COMPLETED"
-              ? "Completada"
-              : "Cancelada"}
+      {status === "PAID" ? "Pagada" : status === "FINANCED" ? "Financiada" : "Cancelada"}
     </span>
   );
 }
