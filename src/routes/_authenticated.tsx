@@ -31,12 +31,12 @@ const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Resumen", to: "/dashboard" as const },
   { icon: Car, label: "Mis Vehículos", to: "/dashboard/vehicles" as const },
   { icon: ShoppingBag, label: "Marketplace", to: "/dashboard/marketplace" as const },
-  // { icon: Clock, label: "Historial", to: "/dashboard/history" as const },
-  // { icon: CreditCard, label: "Mis Cuotas", to: "/dashboard/installments" as const },
+  { icon: Clock, label: "Historial", to: "/dashboard/history" as const },
+  { icon: CreditCard, label: "Mis Cuotas", to: "/dashboard/installments" as const },
+  { icon: Store, label: "Red de Talleres", to: "/dashboard/workshops" as const },
 ];
 
 const WORKSHOP_ITEMS = [
-  { icon: Store, label: "Red de Talleres", to: "/dashboard/workshops" as const },
   { icon: Building2, label: "Mis Talleres", to: "/dashboard/my-workshops" as const },
 ];
 

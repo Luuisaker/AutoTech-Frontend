@@ -37,29 +37,29 @@
 
 :root {
   --radius: 6px;
-  /* Dark-native palette — AMOLED friendly */
-  --background: oklch(0.13 0.005 260);
-  --foreground: oklch(0.97 0.003 260);
-  --surface: oklch(0.165 0.005 260);
-  --surface-foreground: oklch(0.97 0.003 260);
-  --card: oklch(0.165 0.005 260);
-  --card-foreground: oklch(0.97 0.003 260);
-  --popover: oklch(0.165 0.005 260);
-  --popover-foreground: oklch(0.97 0.003 260);
+  /* White-native palette */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.13 0.01 260);
+  --surface: oklch(0.97 0.003 260);
+  --surface-foreground: oklch(0.13 0.01 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0.01 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.01 260);
   /* Coral accent — used ONLY for primary CTAs */
   --primary: oklch(0.72 0.165 28);
-  --primary-foreground: oklch(0.14 0.005 260);
-  --secondary: oklch(0.22 0.005 260);
-  --secondary-foreground: oklch(0.97 0.003 260);
-  --muted: oklch(0.2 0.005 260);
-  --muted-foreground: oklch(0.65 0.008 260);
-  --accent: oklch(0.22 0.005 260);
-  --accent-foreground: oklch(0.97 0.003 260);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.005 260);
+  --secondary-foreground: oklch(0.13 0.01 260);
+  --muted: oklch(0.95 0.005 260);
+  --muted-foreground: oklch(0.48 0.01 260);
+  --accent: oklch(0.95 0.005 260);
+  --accent-foreground: oklch(0.13 0.01 260);
   --destructive: oklch(0.6 0.2 25);
-  --destructive-foreground: oklch(0.97 0.003 260);
-  --border: oklch(0.24 0.005 260);
-  --border-strong: oklch(0.32 0.005 260);
-  --input: oklch(0.24 0.005 260);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.88 0.005 260);
+  --border-strong: oklch(0.78 0.005 260);
+  --input: oklch(0.88 0.005 260);
   --ring: oklch(0.72 0.165 28);
 }
 
