@@ -14,6 +14,13 @@ import {
 } from "lucide-react";
 import heroMockup from "@/assets/hero-mockup.jpg";
 
+function scrollToSection(id: string) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -45,7 +52,6 @@ function Landing() {
         <ExtraValue />
         <FinalCTA />
       </main>
-      <Footer />
     </div>
   );
 }
@@ -56,23 +62,29 @@ function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
       <div className="container-edge flex h-16 items-center justify-between">
-        <a href="#" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <LogoMark />
           <span className="text-base font-semibold tracking-tight">AutoTech</span>
-        </a>
+        </Link>
         <nav className="hidden items-center gap-8 md:flex">
-          <a href="#marketplace" className="text-sm text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => scrollToSection("marketplace")}
+            className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
+          >
             Marketplace
-          </a>
-          <a href="#talleres" className="text-sm text-muted-foreground hover:text-foreground">
+          </button>
+          <button
+            onClick={() => scrollToSection("talleres")}
+            className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
+          >
             Talleres
-          </a>
-          <a href="#servicios" className="text-sm text-muted-foreground hover:text-foreground">
+          </button>
+          <button
+            onClick={() => scrollToSection("servicios")}
+            className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
+          >
             Servicios
-          </a>
-          <a href="#empresa" className="text-sm text-muted-foreground hover:text-foreground">
-            Empresa
-          </a>
+          </button>
         </nav>
         <div className="flex items-center gap-2">
           <Link
@@ -83,9 +95,16 @@ function Header() {
           </Link>
           <Link
             to="/auth"
-            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            search={{ mode: "register" }}
+            className="hidden h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:inline-flex"
           >
             Crear cuenta
+          </Link>
+          <Link
+            to="/auth"
+            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:hidden"
+          >
+            Acceder
           </Link>
         </div>
       </div>
@@ -119,19 +138,20 @@ function Hero() {
             repuestos directamente en la plataforma. Una sola decisión, transparencia total.
           </p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#marketplace"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            <button
+              onClick={() => scrollToSection("marketplace")}
+              className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              Explorar repuestos a cuotas
+              Conocer los beneficios en la compra de repuestos
               <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href="#talleres"
+            </button>
+            <Link
+              to="/auth"
+              search={{ mode: "register" }}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-6 text-sm font-medium text-foreground transition-colors hover:border-foreground/40"
             >
-              Registra tu taller
-            </a>
+              Únete a nuestros talleres afiliados
+            </Link>
           </div>
 
           <dl className="mt-12 grid max-w-lg grid-cols-3 gap-6 border-t border-border pt-8">
@@ -296,7 +316,7 @@ function Network() {
 
         <div className="mt-16 grid gap-6 lg:grid-cols-2">
           <Panel
-            tag="Para conductores"
+            tag="Para propietarios"
             icon={Users}
             title="Talleres auditados y trazables"
             features={[
@@ -311,7 +331,7 @@ function Network() {
             icon={Store}
             title="Más clientes. Menos fricción."
             features={[
-              "Acceso a conductores verificados con financiamiento aprobado",
+              "Acceso a propietarios verificados con financiamiento aprobado",
               "Gestión integrada de órdenes, repuestos y pagos",
               "Sello 'Taller Certificado AutoTech' con autoridad institucional",
               "Liquidaciones semanales sin retención de capital",
@@ -428,26 +448,28 @@ function FinalCTA() {
           </div>
 
           <div className="grid content-center gap-3">
-            <a
-              href="#conductor"
-              className="group flex items-center justify-between rounded-md border border-border bg-surface px-5 py-4 transition-colors hover:border-foreground/40"
+            <Link
+              to="/auth"
+              search={{ mode: "register", type: "client" }}
+              className="group flex w-full items-center justify-between rounded-md border border-border bg-surface px-5 py-4 transition-colors hover:border-foreground/40"
             >
               <div className="flex items-center gap-4">
                 <Wrench className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Soy conductor</span>
+                <span className="text-sm font-medium">Soy propietario</span>
               </div>
               <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-            </a>
-            <a
-              href="#taller"
-              className="group flex items-center justify-between rounded-md bg-primary px-5 py-4 text-primary-foreground transition-colors hover:bg-primary/90"
+            </Link>
+            <Link
+              to="/auth"
+              search={{ mode: "register", type: "workshop" }}
+              className="group flex w-full items-center justify-between rounded-md bg-primary px-5 py-4 text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <div className="flex items-center gap-4">
                 <BarChart3 className="h-4 w-4" />
                 <span className="text-sm font-medium">Registrar mi taller</span>
               </div>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -455,58 +477,3 @@ function FinalCTA() {
   );
 }
 
-/* ---------------- Footer ---------------- */
-
-function Footer() {
-  return (
-    <footer id="empresa" className="bg-background">
-      <div className="container-edge grid gap-12 py-16 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div>
-          <div className="flex items-center gap-2">
-            <LogoMark />
-            <span className="text-base font-semibold tracking-tight">AutoTech</span>
-          </div>
-          <p className="mt-4 max-w-xs text-sm text-muted-foreground">
-            Infraestructura financiera y operativa para la industria automotriz.
-          </p>
-        </div>
-        <FooterCol
-          title="Producto"
-          links={["Marketplace", "Financiamiento", "Talleres", "Asistencia 24/7"]}
-        />
-        <FooterCol title="Empresa" links={["Sobre nosotros", "Prensa", "Carreras", "Contacto"]} />
-        <FooterCol
-          title="Legal"
-          links={["Términos", "Privacidad", "Política de crédito", "Cumplimiento"]}
-        />
-      </div>
-      <div className="border-t border-border">
-        <div className="container-edge flex flex-col items-start justify-between gap-3 py-6 sm:flex-row sm:items-center">
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} AutoTech. Todos los derechos reservados.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Regulado y auditado por entidades financieras locales.
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-function FooterCol({ title, links }: { title: string; links: string[] }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-[0.18em] text-foreground">{title}</p>
-      <ul className="mt-4 space-y-3">
-        {links.map((l) => (
-          <li key={l}>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground">
-              {l}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}

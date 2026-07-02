@@ -34,6 +34,7 @@ export type RegisterInput = {
   last_name: string;
   ci: string;
   phone: string;
+  role?: "CLIENT" | "WORKSHOP_OWNER" | "ADMIN";
 };
 
 function extractToken(body: TokenResponse | CoreResponse<TokenResponse>): TokenResponse {
@@ -56,18 +57,35 @@ export async function login(email: string, password: string): Promise<UserProfil
 }
 
 export async function register(input: RegisterInput): Promise<UserProfile> {
-  const res = await api.post<TokenResponse | CoreResponse<TokenResponse>>("/users/register", input);
-  const tokenData = extractToken(res.data);
-  if (tokenData?.access_token) {
-    setToken(tokenData.access_token);
-  }
-  return getMe();
+  await api.post<UserProfile | CoreResponse<UserProfile>>("/users/register", input);
+  return login(input.email, input.password);
 }
 
 export async function getMe(): Promise<UserProfile> {
   const res = await api.get<UserProfile | CoreResponse<UserProfile>>("/users/me");
   const body = res.data;
   return "id" in body ? body : (body as CoreResponse<UserProfile>).content;
+}
+
+export type UpdateProfileInput = {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+};
+
+export async function updateMe(input: UpdateProfileInput): Promise<UserProfile> {
+  const res = await api.put<UserProfile | CoreResponse<UserProfile>>("/users/me", input);
+  const body = res.data;
+  return "id" in body ? body : (body as CoreResponse<UserProfile>).content;
+}
+
+export type ChangePasswordInput = {
+  current_password: string;
+  new_password: string;
+};
+
+export async function changePassword(input: ChangePasswordInput): Promise<void> {
+  await api.post("/users/me/change-password", input);
 }
 
 export function logout() {

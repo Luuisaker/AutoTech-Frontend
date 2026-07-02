@@ -41,10 +41,18 @@ type WorkshopListContent = {
   workshops: Workshop[];
 };
 
-export async function getWorkshops(): Promise<Workshop[]> {
+export type GetWorkshopsParams = {
+  search?: string;
+  certified_only?: boolean;
+  city?: string;
+  min_rating?: number;
+};
+
+export async function getWorkshops(params?: GetWorkshopsParams): Promise<Workshop[]> {
   const res = await api.get("/workshops", {
     params: {
       certified_only: true,
+      ...params,
     },
   });
   const body = unwrap<Workshop[] | WorkshopListContent>(res.data);
@@ -75,6 +83,29 @@ export async function createWorkshop(input: WorkshopInput): Promise<Workshop> {
   });
 
   return unwrap<Workshop>(res.data);
+}
+
+export async function updateWorkshop(
+  id: string,
+  input: Partial<WorkshopInput>,
+): Promise<Workshop> {
+  const formData = new FormData();
+  if (input.name != null) formData.append("name", input.name);
+  if (input.address != null) formData.append("address", input.address);
+  if (input.latitude != null) formData.append("latitude", String(input.latitude));
+  if (input.longitude != null) formData.append("longitude", String(input.longitude));
+  if (input.verification_document) {
+    formData.append("verification_document", input.verification_document);
+  }
+
+  const res = await api.put(`/workshops/${id}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return unwrap<Workshop>(res.data);
+}
+
+export async function deleteWorkshop(id: string): Promise<void> {
+  await api.delete(`/workshops/${id}`);
 }
 
 export async function getPendingVerifications(): Promise<Workshop[]> {
@@ -183,6 +214,23 @@ export type InstallmentDTO = {
   reference_number: string | null;
   status: string;
   paid_at: string | null;
+};
+
+export type WorkshopSaleDTO = {
+  id: string;
+  part_id: string;
+  user_id: string;
+  workshop_id: string;
+  vehicle_id: string;
+  mileage: number;
+  quantity: number;
+  unit_price: number;
+  total_amount: number;
+  down_payment: number;
+  financed_amount: number;
+  installment_count: number;
+  status: string;
+  created_at: string;
 };
 
 export async function getMyOrders(): Promise<OrderDTO[]> {
@@ -411,9 +459,9 @@ export async function deletePaymentAccount(id: string): Promise<void> {
 export async function getWorkshopSales(
   workshopId: string,
   params?: { offset?: number; limit?: number },
-): Promise<OrderDTO[]> {
+): Promise<WorkshopSaleDTO[]> {
   const res = await api.get(`/parts/workshop/${workshopId}/sales`, { params });
-  const body = unwrap<{ purchases: OrderDTO[] }>(res.data);
+  const body = unwrap<{ purchases: WorkshopSaleDTO[] }>(res.data);
   return body.purchases;
 }
 

@@ -116,14 +116,13 @@ function PartDetailPage() {
         <div className="lg:col-span-3">
           <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-surface">
             <div className="relative flex h-full w-full items-center justify-center p-10">
-              <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent" />
-              <Wrench className="h-32 w-32 text-border-500 opacity-40" />
+              <Wrench className="h-32 w-32 text-border opacity-40" />
               {part.category && (
-                <span className="absolute left-4 top-4 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
+                <span className="absolute left-4 top-4 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {CATEGORY_LABELS[part.category] ?? part.category}
                 </span>
               )}
-              <span className="absolute right-4 top-4 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
+              <span className="absolute right-4 top-4 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {CONDITION_LABELS[part.condition] ?? part.condition}
               </span>
             </div>
@@ -205,7 +204,7 @@ function PartDetailPage() {
             ) : (
               <button
                 onClick={() => addMutation.mutate()}
-                disabled={!part.is_active || part.stock === 0 || addMutation.isPending}
+                disabled={!part.is_active || part.stock === 0 || addMutation.isPending || isOwnProduct}
                 className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-primary py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {addMutation.isPending ? (
@@ -213,16 +212,18 @@ function PartDetailPage() {
                 ) : (
                   <ShoppingCart className="h-4 w-4" />
                 )}
-                {part.stock === 0
-                  ? "Sin stock"
-                  : addMutation.isPending
-                    ? "Agregando..."
-                    : "Agregar al carrito"}
+                {isOwnProduct
+                  ? "No puedes comprar tu producto"
+                  : part.stock === 0
+                    ? "Sin stock"
+                    : addMutation.isPending
+                      ? "Agregando..."
+                      : "Agregar al carrito"}
               </button>
             )}
 
             {isOwnProduct && (
-              <p className="mt-2 text-center text-xs text-muted-foreground">Este es tu producto</p>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Producto publicado por tu taller</p>
             )}
           </div>
         </div>

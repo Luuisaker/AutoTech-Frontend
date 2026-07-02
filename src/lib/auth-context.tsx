@@ -19,6 +19,7 @@ type AuthState = {
   login: (email: string, password: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
+  updateProfile: (profile: UserProfile) => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -33,12 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
-    getMe()
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const safetyTimeout = new Promise<void>((resolve) => {
+      timeoutId = setTimeout(() => {
+        setIsLoading(false);
+        resolve();
+      }, 5000);
+    });
+
+    const fetchUser = getMe()
       .then(setUser)
       .catch(() => {
         apiLogout();
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+        setIsLoading(false);
+      });
+
+    void Promise.race([fetchUser, safetyTimeout]);
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -56,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     apiLogout();
   }, []);
 
+  const updateProfile = useCallback((profile: UserProfile) => {
+    setUser(profile);
+  }, []);
+
   const jwt = getToken() ? decodeJwt(getToken()!) : null;
   const roles = jwt?.roles ?? user?.roles ?? [];
 
@@ -69,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        updateProfile,
       }}
     >
       {children}

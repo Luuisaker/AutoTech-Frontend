@@ -23,7 +23,6 @@ import { Route as AuthenticatedDashboardCheckoutRouteImport } from './routes/_au
 import { Route as AuthenticatedDashboardCartRouteImport } from './routes/_authenticated/dashboard/cart'
 import { Route as AuthenticatedDashboardPurchasesPurchaseIdRouteImport } from './routes/_authenticated/dashboard/purchases.$purchaseId'
 import { Route as AuthenticatedDashboardPartsIdRouteImport } from './routes/_authenticated/dashboard/parts.$id'
-import { Route as AuthenticatedDashboardMyWorkshopsWorkshopIdRouteImport } from './routes/_authenticated/dashboard/my-workshops.$workshopId'
 import { Route as AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteImport } from './routes/_authenticated/dashboard/my-workshops.$workshopId.sales'
 
 const AuthRoute = AuthRouteImport.update({
@@ -105,17 +104,11 @@ const AuthenticatedDashboardPartsIdRoute =
     path: '/parts/$id',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
-const AuthenticatedDashboardMyWorkshopsWorkshopIdRoute =
-  AuthenticatedDashboardMyWorkshopsWorkshopIdRouteImport.update({
-    id: '/$workshopId',
-    path: '/$workshopId',
-    getParentRoute: () => AuthenticatedDashboardMyWorkshopsRoute,
-  } as any)
 const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute =
   AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteImport.update({
-    id: '/sales',
-    path: '/sales',
-    getParentRoute: () => AuthenticatedDashboardMyWorkshopsWorkshopIdRoute,
+    id: '/$workshopId/sales',
+    path: '/$workshopId/sales',
+    getParentRoute: () => AuthenticatedDashboardMyWorkshopsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -130,7 +123,6 @@ export interface FileRoutesByFullPath {
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
   '/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
-  '/dashboard/my-workshops/$workshopId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdRouteWithChildren
   '/dashboard/parts/$id': typeof AuthenticatedDashboardPartsIdRoute
   '/dashboard/purchases/$purchaseId': typeof AuthenticatedDashboardPurchasesPurchaseIdRoute
   '/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
@@ -147,7 +139,6 @@ export interface FileRoutesByTo {
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
   '/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
-  '/dashboard/my-workshops/$workshopId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdRouteWithChildren
   '/dashboard/parts/$id': typeof AuthenticatedDashboardPartsIdRoute
   '/dashboard/purchases/$purchaseId': typeof AuthenticatedDashboardPurchasesPurchaseIdRoute
   '/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
@@ -166,7 +157,6 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/_authenticated/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
   '/_authenticated/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
-  '/_authenticated/dashboard/my-workshops/$workshopId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdRouteWithChildren
   '/_authenticated/dashboard/parts/$id': typeof AuthenticatedDashboardPartsIdRoute
   '/_authenticated/dashboard/purchases/$purchaseId': typeof AuthenticatedDashboardPurchasesPurchaseIdRoute
   '/_authenticated/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
@@ -185,7 +175,6 @@ export interface FileRouteTypes {
     | '/dashboard/settings'
     | '/dashboard/vehicles'
     | '/dashboard/workshops'
-    | '/dashboard/my-workshops/$workshopId'
     | '/dashboard/parts/$id'
     | '/dashboard/purchases/$purchaseId'
     | '/dashboard/my-workshops/$workshopId/sales'
@@ -202,7 +191,6 @@ export interface FileRouteTypes {
     | '/dashboard/settings'
     | '/dashboard/vehicles'
     | '/dashboard/workshops'
-    | '/dashboard/my-workshops/$workshopId'
     | '/dashboard/parts/$id'
     | '/dashboard/purchases/$purchaseId'
     | '/dashboard/my-workshops/$workshopId/sales'
@@ -220,7 +208,6 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/settings'
     | '/_authenticated/dashboard/vehicles'
     | '/_authenticated/dashboard/workshops'
-    | '/_authenticated/dashboard/my-workshops/$workshopId'
     | '/_authenticated/dashboard/parts/$id'
     | '/_authenticated/dashboard/purchases/$purchaseId'
     | '/_authenticated/dashboard/my-workshops/$workshopId/sales'
@@ -332,46 +319,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardPartsIdRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
-    '/_authenticated/dashboard/my-workshops/$workshopId': {
-      id: '/_authenticated/dashboard/my-workshops/$workshopId'
-      path: '/$workshopId'
-      fullPath: '/dashboard/my-workshops/$workshopId'
-      preLoaderRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdRouteImport
-      parentRoute: typeof AuthenticatedDashboardMyWorkshopsRoute
-    }
     '/_authenticated/dashboard/my-workshops/$workshopId/sales': {
       id: '/_authenticated/dashboard/my-workshops/$workshopId/sales'
-      path: '/sales'
+      path: '/$workshopId/sales'
       fullPath: '/dashboard/my-workshops/$workshopId/sales'
       preLoaderRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteImport
-      parentRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdRoute
+      parentRoute: typeof AuthenticatedDashboardMyWorkshopsRoute
     }
   }
 }
 
-interface AuthenticatedDashboardMyWorkshopsWorkshopIdRouteChildren {
-  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
-}
-
-const AuthenticatedDashboardMyWorkshopsWorkshopIdRouteChildren: AuthenticatedDashboardMyWorkshopsWorkshopIdRouteChildren =
-  {
-    AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute:
-      AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute,
-  }
-
-const AuthenticatedDashboardMyWorkshopsWorkshopIdRouteWithChildren =
-  AuthenticatedDashboardMyWorkshopsWorkshopIdRoute._addFileChildren(
-    AuthenticatedDashboardMyWorkshopsWorkshopIdRouteChildren,
-  )
-
 interface AuthenticatedDashboardMyWorkshopsRouteChildren {
-  AuthenticatedDashboardMyWorkshopsWorkshopIdRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdRouteWithChildren
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
 }
 
 const AuthenticatedDashboardMyWorkshopsRouteChildren: AuthenticatedDashboardMyWorkshopsRouteChildren =
   {
-    AuthenticatedDashboardMyWorkshopsWorkshopIdRoute:
-      AuthenticatedDashboardMyWorkshopsWorkshopIdRouteWithChildren,
+    AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute:
+      AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute,
   }
 
 const AuthenticatedDashboardMyWorkshopsRouteWithChildren =

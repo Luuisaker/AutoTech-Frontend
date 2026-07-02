@@ -10,10 +10,8 @@ import {
   Car,
   Store,
   Menu,
-  Bell,
   ChevronDown,
   LogOut,
-  Settings,
   Clock,
   CreditCard,
   Building2,
@@ -28,13 +26,16 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const NAV_ITEMS = [
+const MAIN_ITEMS = [
   { icon: LayoutDashboard, label: "Resumen", to: "/dashboard" as const },
-  { icon: Car, label: "Mis Vehículos", to: "/dashboard/vehicles" as const },
   { icon: ShoppingCart, label: "Carrito", to: "/dashboard/cart" as const },
   { icon: ShoppingBag, label: "Marketplace", to: "/dashboard/marketplace" as const },
   { icon: CreditCard, label: "Órdenes", to: "/dashboard/purchases" as const },
   { icon: Store, label: "Red de Talleres", to: "/dashboard/workshops" as const },
+];
+
+const CLIENT_ITEMS = [
+  { icon: Car, label: "Mis Vehículos", to: "/dashboard/vehicles" as const },
 ];
 
 const WORKSHOP_ITEMS = [
@@ -54,7 +55,12 @@ function AuthenticatedLayout() {
     );
   }
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) =>
+    location.pathname === path ||
+    (path !== "/dashboard" && location.pathname.startsWith(`${path}/`));
+
+  const initials =
+    (user?.first_name?.[0] ?? "") + (user?.last_name?.[0] ?? "");
 
   return (
     <div className="flex h-screen w-full bg-background text-foreground">
@@ -66,7 +72,7 @@ function AuthenticatedLayout() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-surface transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-surface transition-transform duration-300 ease-out lg:static lg:translate-x-0 ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -79,7 +85,7 @@ function AuthenticatedLayout() {
           <div className="mb-2 mt-4 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Menú Principal
           </div>
-          {NAV_ITEMS.map((item) => (
+          {MAIN_ITEMS.map((item) => (
             <Link
               key={item.to}
               to={item.to}
@@ -94,6 +100,29 @@ function AuthenticatedLayout() {
               {item.label}
             </Link>
           ))}
+
+          {!roles.includes("WORKSHOP_OWNER") && !roles.includes("ADMIN") && (
+            <>
+              <div className="mb-2 mt-6 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Vehículos
+              </div>
+              {CLIENT_ITEMS.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isActive(item.to)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-border/50 hover:text-foreground"
+                  }`}
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </Link>
+              ))}
+            </>
+          )}
 
           {(roles.includes("WORKSHOP_OWNER") || roles.includes("ADMIN")) && (
             <>
@@ -123,11 +152,32 @@ function AuthenticatedLayout() {
           <Link
             to="/dashboard/settings"
             onClick={() => setIsMobileMenuOpen(false)}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-border/50 hover:text-foreground"
+            className={`mb-3 flex cursor-pointer items-center gap-3 rounded-md p-3 transition-colors ${
+              isActive("/dashboard/settings")
+                ? "bg-primary/10 text-primary"
+                : "bg-surface hover:bg-border/50"
+            }`}
           >
-            <Settings className="h-4 w-4" />
-            Configuración
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-border-strong">
+              <span className="text-xs font-medium text-foreground">
+                {initials ? initials : "?"}
+              </span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {user?.first_name} {user?.last_name}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {roles.includes("ADMIN")
+                  ? "Administrador"
+                  : roles.includes("WORKSHOP_OWNER")
+                    ? "Dueño de Taller"
+                    : "Propietario"}
+              </p>
+            </div>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
           </Link>
+
           <button
             onClick={logout}
             className="cursor-pointer flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -139,43 +189,13 @@ function AuthenticatedLayout() {
       </aside>
 
       <main className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface/50 px-4 backdrop-blur-md sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="grid h-10 w-10 place-items-center rounded-md border border-border bg-surface text-muted-foreground hover:text-foreground lg:hidden"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="relative grid h-10 w-10 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground">
-              <Bell className="h-4 w-4" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
-            </button>
-            <div className="flex items-center gap-3 border-l border-border pl-4">
-              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-border-strong">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {user?.first_name?.charAt(0)?.toUpperCase()}
-                  {user?.last_name?.charAt(0)?.toUpperCase()}
-                </span>
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium">
-                  {user?.first_name} {user?.last_name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {roles.includes("ADMIN")
-                    ? "Administrador"
-                    : roles.includes("WORKSHOP_OWNER")
-                      ? "Dueño de Taller"
-                      : "Conductor"}
-                </p>
-              </div>
-              <ChevronDown className="hidden h-4 w-4 text-muted-foreground sm:block" />
-            </div>
-          </div>
+        <header className="flex h-16 shrink-0 items-center border-b border-border bg-surface/50 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="grid h-10 w-10 place-items-center rounded-md border border-border bg-surface text-muted-foreground hover:text-foreground lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">

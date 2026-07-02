@@ -46,7 +46,7 @@ function CartPage() {
         Seguir comprando
       </Link>
 
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Carrito de compras</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -80,7 +80,7 @@ function CartPage() {
             {items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface p-5"
+                className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-4">
                   <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-border bg-background">

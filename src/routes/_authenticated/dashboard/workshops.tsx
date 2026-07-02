@@ -14,17 +14,14 @@ function WorkshopsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["workshops", query, certifiedOnly],
-    queryFn: () => getWorkshops(),
+    queryFn: () =>
+      getWorkshops({
+        search: query || undefined,
+        certified_only: certifiedOnly,
+      }),
   });
 
-  const filtered = (data ?? []).filter((w) => {
-    if (certifiedOnly && !w.is_certified) return false;
-    if (query) {
-      const q = query.toLowerCase();
-      if (!w.name.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
+  const filtered = data ?? [];
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -45,7 +42,7 @@ function WorkshopsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por nombre..."
-            className="h-10 w-full rounded-md border border-border bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-10 w-full rounded-md border border-border bg-transparent pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -87,16 +84,15 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
   return (
     <div className="group flex flex-col overflow-hidden rounded-md border border-border bg-surface transition-all hover:border-border-strong">
       <div className="relative flex aspect-[4/3] w-full items-center justify-center border-b border-border bg-background">
-        <div className="absolute inset-0 bg-gradient-to-t from-surface/60 to-transparent" />
-        <Store className="h-16 w-16 text-border-500 opacity-50 transition-transform duration-500 group-hover:scale-105" />
+        <Store className="h-16 w-16 text-border opacity-50 transition-transform duration-300 ease-out group-hover:scale-105" />
         {workshop.is_certified === true && (
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-[4px] border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-emerald-400 backdrop-blur">
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-[4px] border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-emerald-400">
             <ShieldCheck className="h-3 w-3" />
             Certificado
           </span>
         )}
-        <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-[4px] border border-border bg-surface/80 px-2 py-1 text-[10px] font-medium tracking-wider text-muted-foreground backdrop-blur">
-          <Star className="h-3 w-3 text-amber-400" />
+        <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-[4px] border border-border bg-surface px-2 py-1 text-[10px] font-medium tracking-wider text-muted-foreground">
+          <Star className="h-3 w-3 text-primary" />
           {workshop.average_rating.toFixed(1)}
         </div>
       </div>

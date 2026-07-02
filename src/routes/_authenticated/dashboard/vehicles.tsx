@@ -64,7 +64,7 @@ function VehiclesPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Mis Vehículos</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -73,7 +73,7 @@ function VehiclesPage() {
         </div>
         <button
           onClick={() => setDialog("create")}
-          className="cursor-pointer inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          className="cursor-pointer inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Registrar vehículo
@@ -154,18 +154,17 @@ function VehicleCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-border-strong hover:shadow-sm">
+    <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-border-strong">
       <div className="relative flex aspect-[4/3] w-full items-center justify-center border-b border-border bg-background">
-        <div className="absolute inset-0 bg-gradient-to-t from-surface/60 to-transparent" />
         {vehicle.vehicle_type === "CAR" ? (
-          <Car className="h-20 w-20 text-border-500 opacity-50 transition-transform duration-500 group-hover:scale-110" />
+          <Car className="h-20 w-20 text-border opacity-50 transition-transform duration-300 ease-out group-hover:scale-110" />
         ) : (
-          <Bike className="h-20 w-20 text-border-500 opacity-50 transition-transform duration-500 group-hover:scale-110" />
+          <Bike className="h-20 w-20 text-border opacity-50 transition-transform duration-300 ease-out group-hover:scale-110" />
         )}
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           {vehicle.vehicle_type === "CAR" ? "Automóvil" : "Motocicleta"}
         </span>
-        <span className="absolute right-3 top-3 inline-flex rounded-full border border-border bg-surface/80 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur">
+        <span className="absolute right-3 top-3 inline-flex rounded-full border border-border bg-surface px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           {vehicle.year}
         </span>
       </div>
@@ -393,7 +392,7 @@ function DeleteConfirmDialog({
         <h2 className="text-lg font-semibold tracking-tight">Eliminar vehículo</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           ¿Estás seguro de eliminar {vehicle.brand} {vehicle.model} ({vehicle.license_plate})? Esta
-          acción es reversible.
+          acción es irreversible.
         </p>
 
         <div className="mt-6 flex justify-end gap-3">

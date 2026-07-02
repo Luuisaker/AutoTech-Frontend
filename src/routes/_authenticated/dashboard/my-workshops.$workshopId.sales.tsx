@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, ShoppingBag, DollarSign, Calendar } from "lucide-react";
-import { getWorkshopSales, getWorkshop, type OrderDTO } from "../../../lib/api";
+import { getWorkshopSales, getWorkshop, type WorkshopSaleDTO } from "../../../lib/api";
 
 export const Route = createFileRoute("/_authenticated/dashboard/my-workshops/$workshopId/sales")({
   component: WorkshopSalesPage,
@@ -11,12 +11,14 @@ const STATUS_LABELS: Record<string, string> = {
   PAID: "Pagada",
   FINANCED: "Financiada",
   CANCELLED: "Cancelada",
+  PENDING: "Pendiente",
 };
 
 const STATUS_STYLES: Record<string, string> = {
   PAID: "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
   FINANCED: "border border-purple-500/30 bg-purple-500/10 text-purple-400",
   CANCELLED: "border border-red-500/30 bg-red-500/10 text-red-400",
+  PENDING: "border border-amber-500/30 bg-amber-500/10 text-amber-400",
 };
 
 function WorkshopSalesPage() {
@@ -84,7 +86,7 @@ function WorkshopSalesPage() {
   );
 }
 
-function SaleRow({ sale }: { sale: OrderDTO }) {
+function SaleRow({ sale }: { sale: WorkshopSaleDTO }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-5 transition-colors hover:border-border-strong">
       <div className="flex items-start gap-4">
@@ -100,10 +102,9 @@ function SaleRow({ sale }: { sale: OrderDTO }) {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {sale.items.length} producto{sale.items.length !== 1 ? "s" : ""} · $
-            {sale.total_amount.toFixed(2)}
+            {sale.quantity} unidad{sale.quantity !== 1 ? "es" : ""} · ${sale.total_amount.toFixed(2)}
           </p>
-          <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               {new Date(sale.created_at).toLocaleDateString("es-ES", {

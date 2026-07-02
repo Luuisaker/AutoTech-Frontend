@@ -83,14 +83,19 @@ function OrderRow({ order }: { order: OrderDTO }) {
           <p className="mt-1 text-sm text-muted-foreground">
             {itemCount} producto{itemCount !== 1 ? "s" : ""} · ${order.total_amount.toFixed(2)}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {new Date(order.created_at).toLocaleDateString("es-ES", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-            {order.installment_count > 0 &&
-              ` · ${order.installment_count} cuota${order.installment_count > 1 ? "s" : ""}`}
+          <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+            <span>
+              {new Date(order.created_at).toLocaleDateString("es-ES", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+            {order.installment_count > 0 && (
+              <span>
+                {order.installment_count} cuota{order.installment_count > 1 ? "s" : ""}
+              </span>
+            )}
           </p>
         </div>
       </div>

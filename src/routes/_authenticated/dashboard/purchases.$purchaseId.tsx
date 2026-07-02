@@ -104,7 +104,7 @@ function PurchaseDetailPage() {
         </div>
       ) : installments && installments.length > 0 ? (
         <>
-          <div className="mb-6 grid grid-cols-3 gap-4">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-border bg-surface p-4">
               <p className="text-xs text-muted-foreground">Total</p>
               <p className="mt-1 font-mono text-lg font-semibold">${total.toFixed(2)}</p>
@@ -132,7 +132,7 @@ function PurchaseDetailPage() {
             {installments.map((installment, index) => (
               <div
                 key={installment.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-surface p-5"
+                className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-start gap-4">
                   <div
