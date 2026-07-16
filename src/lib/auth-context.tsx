@@ -16,7 +16,7 @@ type AuthState = {
   isAuthenticated: boolean;
   isLoading: boolean;
   roles: Role[];
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, totp_code?: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
   updateProfile: (profile: UserProfile) => void;
@@ -44,9 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const fetchUser = getMe()
-      .then(setUser)
-      .catch(() => {
-        apiLogout();
+      .then((profile) => {
+        setUser(profile);
+        if (profile.language_preference) {
+          try { localStorage.setItem("autotech.language", profile.language_preference); } catch {}
+        }
+      })
+      .catch((err) => {
+        console.error("AuthProvider: getMe failed", err?.response?.status, err?.message);
       })
       .finally(() => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -56,8 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void Promise.race([fetchUser, safetyTimeout]);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const profile = await apiLogin(email, password);
+  const login = useCallback(async (email: string, password: string, totp_code?: string) => {
+    const profile = await apiLogin(email, password, totp_code);
     setUser(profile);
   }, []);
 
@@ -67,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    setIsLoading(true);
     setUser(null);
     apiLogout();
   }, []);

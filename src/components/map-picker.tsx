@@ -49,7 +49,7 @@ export default function MapPicker({
   const validateAndSetLocation = async (lat: number, lng: number) => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
       );
       const data = await response.json();
 
@@ -78,8 +78,8 @@ export default function MapPicker({
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&countrycodes=ve&limit=1`
+          searchQuery,
+        )}&countrycodes=ve&limit=1`,
       );
       const data = await response.json();
 
@@ -113,7 +113,11 @@ export default function MapPicker({
           disabled={isSearching}
           className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium transition-colors hover:bg-surface/80 disabled:opacity-50"
         >
-          {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          {isSearching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="h-4 w-4" />
+          )}
         </button>
       </div>
 

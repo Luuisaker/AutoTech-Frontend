@@ -1,6 +1,7 @@
 import { api } from "./axios";
 import { setToken, clearToken, decodeJwt, getToken } from "./token";
 import type { Role, JwtPayload } from "./token";
+import type { CoreResponse } from "./api";
 
 export type { Role, JwtPayload };
 export { getToken, decodeJwt, clearToken };
@@ -10,13 +11,6 @@ export type TokenResponse = {
   token_type: string;
 };
 
-export type CoreResponse<T> = {
-  success: boolean;
-  status_code: number;
-  message: string;
-  content: T;
-};
-
 export type UserProfile = {
   id: string;
   email: string;
@@ -24,7 +18,17 @@ export type UserProfile = {
   last_name: string;
   ci: string;
   phone: string;
+  photo_url: string | null;
   roles: Role[];
+  credit_level: number;
+  parts_credit_limit: number;
+  service_credit_limit: number;
+  parts_available: number;
+  service_available: number;
+  total_parts_debt: number;
+  total_service_debt: number;
+  is_2fa_enabled: number;
+  language_preference?: string;
 };
 
 export type RegisterInput = {
@@ -46,10 +50,22 @@ function extractToken(body: TokenResponse | CoreResponse<TokenResponse>): TokenR
   return wrapped.content;
 }
 
-export async function login(email: string, password: string): Promise<UserProfile> {
+function getOrCreateDeviceId(): string {
+  const key = "autotech.device_id";
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = `dev-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+export async function login(email: string, password: string, totp_code?: string): Promise<UserProfile> {
   const res = await api.post<TokenResponse | CoreResponse<TokenResponse>>("/users/login", {
     email,
     password,
+    totp_code,
+    device_id: getOrCreateDeviceId(),
   });
   const tokenData = extractToken(res.data);
   setToken(tokenData.access_token);
@@ -71,6 +87,7 @@ export type UpdateProfileInput = {
   first_name?: string;
   last_name?: string;
   phone?: string;
+  language_preference?: string;
 };
 
 export async function updateMe(input: UpdateProfileInput): Promise<UserProfile> {
@@ -86,6 +103,47 @@ export type ChangePasswordInput = {
 
 export async function changePassword(input: ChangePasswordInput): Promise<void> {
   await api.post("/users/me/change-password", input);
+}
+
+export async function uploadProfilePhoto(file: File): Promise<UserProfile> {
+  const form = new FormData();
+  form.append("photo", file);
+  const res = await api.put<UserProfile | CoreResponse<UserProfile>>("/users/me/photo", form);
+  const body = res.data;
+  return "id" in body ? body : (body as CoreResponse<UserProfile>).content;
+}
+
+export async function deleteProfilePhoto(): Promise<UserProfile> {
+  const res = await api.delete<UserProfile | CoreResponse<UserProfile>>("/users/me/photo");
+  const body = res.data;
+  return "id" in body ? body : (body as CoreResponse<UserProfile>).content;
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await api.post("/users/forgot-password", { email });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  await api.post("/users/reset-password", { token, new_password: newPassword });
+}
+
+export type TwoFactorSetupResponse = {
+  secret: string;
+  otpauth_uri: string;
+};
+
+export async function setup2FA(): Promise<TwoFactorSetupResponse> {
+  const res = await api.post<CoreResponse<TwoFactorSetupResponse>>("/users/me/2fa/setup");
+  const body = res.data;
+  return (body as CoreResponse<TwoFactorSetupResponse>).content;
+}
+
+export async function verify2FA(code: string): Promise<void> {
+  await api.post("/users/me/2fa/verify", { code });
+}
+
+export async function disable2FA(code: string): Promise<void> {
+  await api.post("/users/me/2fa/disable", { code });
 }
 
 export function logout() {

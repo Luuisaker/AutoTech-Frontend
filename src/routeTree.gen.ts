@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -16,15 +17,30 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDashboardWorkshopsRouteImport } from './routes/_authenticated/dashboard/workshops'
 import { Route as AuthenticatedDashboardVehiclesRouteImport } from './routes/_authenticated/dashboard/vehicles'
 import { Route as AuthenticatedDashboardSettingsRouteImport } from './routes/_authenticated/dashboard/settings'
+import { Route as AuthenticatedDashboardServicesRouteImport } from './routes/_authenticated/dashboard/services'
+import { Route as AuthenticatedDashboardServiceOrdersRouteImport } from './routes/_authenticated/dashboard/service-orders'
 import { Route as AuthenticatedDashboardPurchasesRouteImport } from './routes/_authenticated/dashboard/purchases'
+import { Route as AuthenticatedDashboardPartsRouteImport } from './routes/_authenticated/dashboard/parts'
 import { Route as AuthenticatedDashboardMyWorkshopsRouteImport } from './routes/_authenticated/dashboard/my-workshops'
 import { Route as AuthenticatedDashboardMarketplaceRouteImport } from './routes/_authenticated/dashboard/marketplace'
+import { Route as AuthenticatedDashboardCreditLineRouteImport } from './routes/_authenticated/dashboard/credit-line'
+import { Route as AuthenticatedDashboardCommissionsRouteImport } from './routes/_authenticated/dashboard/commissions'
 import { Route as AuthenticatedDashboardCheckoutRouteImport } from './routes/_authenticated/dashboard/checkout'
 import { Route as AuthenticatedDashboardCartRouteImport } from './routes/_authenticated/dashboard/cart'
+import { Route as AuthenticatedDashboardAdminRouteImport } from './routes/_authenticated/dashboard/admin'
+import { Route as AuthenticatedDashboardServiceOrdersOrderIdRouteImport } from './routes/_authenticated/dashboard/service-orders.$orderId'
 import { Route as AuthenticatedDashboardPurchasesPurchaseIdRouteImport } from './routes/_authenticated/dashboard/purchases.$purchaseId'
 import { Route as AuthenticatedDashboardPartsIdRouteImport } from './routes/_authenticated/dashboard/parts.$id'
 import { Route as AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteImport } from './routes/_authenticated/dashboard/my-workshops.$workshopId.sales'
+import { Route as AuthenticatedDashboardAdminServiceOrdersOrderIdRouteImport } from './routes/_authenticated/dashboard/admin/service-orders.$orderId'
+import { Route as AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRouteImport } from './routes/_authenticated/dashboard/my-workshops.$workshopId.sales.service-orders.$orderId'
+import { Route as AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRouteImport } from './routes/_authenticated/dashboard/my-workshops.$workshopId.sales.purchases.$purchaseId'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -62,10 +78,28 @@ const AuthenticatedDashboardSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardServicesRoute =
+  AuthenticatedDashboardServicesRouteImport.update({
+    id: '/services',
+    path: '/services',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardServiceOrdersRoute =
+  AuthenticatedDashboardServiceOrdersRouteImport.update({
+    id: '/service-orders',
+    path: '/service-orders',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedDashboardPurchasesRoute =
   AuthenticatedDashboardPurchasesRouteImport.update({
     id: '/purchases',
     path: '/purchases',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardPartsRoute =
+  AuthenticatedDashboardPartsRouteImport.update({
+    id: '/parts',
+    path: '/parts',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
 const AuthenticatedDashboardMyWorkshopsRoute =
@@ -80,6 +114,18 @@ const AuthenticatedDashboardMarketplaceRoute =
     path: '/marketplace',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardCreditLineRoute =
+  AuthenticatedDashboardCreditLineRouteImport.update({
+    id: '/credit-line',
+    path: '/credit-line',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardCommissionsRoute =
+  AuthenticatedDashboardCommissionsRouteImport.update({
+    id: '/commissions',
+    path: '/commissions',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedDashboardCheckoutRoute =
   AuthenticatedDashboardCheckoutRouteImport.update({
     id: '/checkout',
@@ -92,6 +138,18 @@ const AuthenticatedDashboardCartRoute =
     path: '/cart',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const AuthenticatedDashboardAdminRoute =
+  AuthenticatedDashboardAdminRouteImport.update({
+    id: '/admin',
+    path: '/admin',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
+const AuthenticatedDashboardServiceOrdersOrderIdRoute =
+  AuthenticatedDashboardServiceOrdersOrderIdRouteImport.update({
+    id: '/$orderId',
+    path: '/$orderId',
+    getParentRoute: () => AuthenticatedDashboardServiceOrdersRoute,
+  } as any)
 const AuthenticatedDashboardPurchasesPurchaseIdRoute =
   AuthenticatedDashboardPurchasesPurchaseIdRouteImport.update({
     id: '/$purchaseId',
@@ -100,9 +158,9 @@ const AuthenticatedDashboardPurchasesPurchaseIdRoute =
   } as any)
 const AuthenticatedDashboardPartsIdRoute =
   AuthenticatedDashboardPartsIdRouteImport.update({
-    id: '/parts/$id',
-    path: '/parts/$id',
-    getParentRoute: () => AuthenticatedDashboardRoute,
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => AuthenticatedDashboardPartsRoute,
   } as any)
 const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute =
   AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteImport.update({
@@ -110,117 +168,215 @@ const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute =
     path: '/$workshopId/sales',
     getParentRoute: () => AuthenticatedDashboardMyWorkshopsRoute,
   } as any)
+const AuthenticatedDashboardAdminServiceOrdersOrderIdRoute =
+  AuthenticatedDashboardAdminServiceOrdersOrderIdRouteImport.update({
+    id: '/service-orders/$orderId',
+    path: '/service-orders/$orderId',
+    getParentRoute: () => AuthenticatedDashboardAdminRoute,
+  } as any)
+const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute =
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRouteImport.update(
+    {
+      id: '/service-orders/$orderId',
+      path: '/service-orders/$orderId',
+      getParentRoute: () =>
+        AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute,
+    } as any,
+  )
+const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute =
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRouteImport.update(
+    {
+      id: '/purchases/$purchaseId',
+      path: '/purchases/$purchaseId',
+      getParentRoute: () =>
+        AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/dashboard/admin': typeof AuthenticatedDashboardAdminRouteWithChildren
   '/dashboard/cart': typeof AuthenticatedDashboardCartRoute
   '/dashboard/checkout': typeof AuthenticatedDashboardCheckoutRoute
+  '/dashboard/commissions': typeof AuthenticatedDashboardCommissionsRoute
+  '/dashboard/credit-line': typeof AuthenticatedDashboardCreditLineRoute
   '/dashboard/marketplace': typeof AuthenticatedDashboardMarketplaceRoute
   '/dashboard/my-workshops': typeof AuthenticatedDashboardMyWorkshopsRouteWithChildren
+  '/dashboard/parts': typeof AuthenticatedDashboardPartsRouteWithChildren
   '/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRouteWithChildren
+  '/dashboard/service-orders': typeof AuthenticatedDashboardServiceOrdersRouteWithChildren
+  '/dashboard/services': typeof AuthenticatedDashboardServicesRoute
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
   '/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
   '/dashboard/parts/$id': typeof AuthenticatedDashboardPartsIdRoute
   '/dashboard/purchases/$purchaseId': typeof AuthenticatedDashboardPurchasesPurchaseIdRoute
-  '/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
+  '/dashboard/service-orders/$orderId': typeof AuthenticatedDashboardServiceOrdersOrderIdRoute
+  '/dashboard/admin/service-orders/$orderId': typeof AuthenticatedDashboardAdminServiceOrdersOrderIdRoute
+  '/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteWithChildren
+  '/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute
+  '/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/dashboard/admin': typeof AuthenticatedDashboardAdminRouteWithChildren
   '/dashboard/cart': typeof AuthenticatedDashboardCartRoute
   '/dashboard/checkout': typeof AuthenticatedDashboardCheckoutRoute
+  '/dashboard/commissions': typeof AuthenticatedDashboardCommissionsRoute
+  '/dashboard/credit-line': typeof AuthenticatedDashboardCreditLineRoute
   '/dashboard/marketplace': typeof AuthenticatedDashboardMarketplaceRoute
   '/dashboard/my-workshops': typeof AuthenticatedDashboardMyWorkshopsRouteWithChildren
+  '/dashboard/parts': typeof AuthenticatedDashboardPartsRouteWithChildren
   '/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRouteWithChildren
+  '/dashboard/service-orders': typeof AuthenticatedDashboardServiceOrdersRouteWithChildren
+  '/dashboard/services': typeof AuthenticatedDashboardServicesRoute
   '/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
   '/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
   '/dashboard/parts/$id': typeof AuthenticatedDashboardPartsIdRoute
   '/dashboard/purchases/$purchaseId': typeof AuthenticatedDashboardPurchasesPurchaseIdRoute
-  '/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
+  '/dashboard/service-orders/$orderId': typeof AuthenticatedDashboardServiceOrdersOrderIdRoute
+  '/dashboard/admin/service-orders/$orderId': typeof AuthenticatedDashboardAdminServiceOrdersOrderIdRoute
+  '/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteWithChildren
+  '/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute
+  '/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/_authenticated/dashboard/admin': typeof AuthenticatedDashboardAdminRouteWithChildren
   '/_authenticated/dashboard/cart': typeof AuthenticatedDashboardCartRoute
   '/_authenticated/dashboard/checkout': typeof AuthenticatedDashboardCheckoutRoute
+  '/_authenticated/dashboard/commissions': typeof AuthenticatedDashboardCommissionsRoute
+  '/_authenticated/dashboard/credit-line': typeof AuthenticatedDashboardCreditLineRoute
   '/_authenticated/dashboard/marketplace': typeof AuthenticatedDashboardMarketplaceRoute
   '/_authenticated/dashboard/my-workshops': typeof AuthenticatedDashboardMyWorkshopsRouteWithChildren
+  '/_authenticated/dashboard/parts': typeof AuthenticatedDashboardPartsRouteWithChildren
   '/_authenticated/dashboard/purchases': typeof AuthenticatedDashboardPurchasesRouteWithChildren
+  '/_authenticated/dashboard/service-orders': typeof AuthenticatedDashboardServiceOrdersRouteWithChildren
+  '/_authenticated/dashboard/services': typeof AuthenticatedDashboardServicesRoute
   '/_authenticated/dashboard/settings': typeof AuthenticatedDashboardSettingsRoute
   '/_authenticated/dashboard/vehicles': typeof AuthenticatedDashboardVehiclesRoute
   '/_authenticated/dashboard/workshops': typeof AuthenticatedDashboardWorkshopsRoute
   '/_authenticated/dashboard/parts/$id': typeof AuthenticatedDashboardPartsIdRoute
   '/_authenticated/dashboard/purchases/$purchaseId': typeof AuthenticatedDashboardPurchasesPurchaseIdRoute
-  '/_authenticated/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
+  '/_authenticated/dashboard/service-orders/$orderId': typeof AuthenticatedDashboardServiceOrdersOrderIdRoute
+  '/_authenticated/dashboard/admin/service-orders/$orderId': typeof AuthenticatedDashboardAdminServiceOrdersOrderIdRoute
+  '/_authenticated/dashboard/my-workshops/$workshopId/sales': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteWithChildren
+  '/_authenticated/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute
+  '/_authenticated/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId': typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/dashboard'
+    | '/dashboard/admin'
     | '/dashboard/cart'
     | '/dashboard/checkout'
+    | '/dashboard/commissions'
+    | '/dashboard/credit-line'
     | '/dashboard/marketplace'
     | '/dashboard/my-workshops'
+    | '/dashboard/parts'
     | '/dashboard/purchases'
+    | '/dashboard/service-orders'
+    | '/dashboard/services'
     | '/dashboard/settings'
     | '/dashboard/vehicles'
     | '/dashboard/workshops'
     | '/dashboard/parts/$id'
     | '/dashboard/purchases/$purchaseId'
+    | '/dashboard/service-orders/$orderId'
+    | '/dashboard/admin/service-orders/$orderId'
     | '/dashboard/my-workshops/$workshopId/sales'
+    | '/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId'
+    | '/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/dashboard'
+    | '/dashboard/admin'
     | '/dashboard/cart'
     | '/dashboard/checkout'
+    | '/dashboard/commissions'
+    | '/dashboard/credit-line'
     | '/dashboard/marketplace'
     | '/dashboard/my-workshops'
+    | '/dashboard/parts'
     | '/dashboard/purchases'
+    | '/dashboard/service-orders'
+    | '/dashboard/services'
     | '/dashboard/settings'
     | '/dashboard/vehicles'
     | '/dashboard/workshops'
     | '/dashboard/parts/$id'
     | '/dashboard/purchases/$purchaseId'
+    | '/dashboard/service-orders/$orderId'
+    | '/dashboard/admin/service-orders/$orderId'
     | '/dashboard/my-workshops/$workshopId/sales'
+    | '/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId'
+    | '/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/reset-password'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dashboard/admin'
     | '/_authenticated/dashboard/cart'
     | '/_authenticated/dashboard/checkout'
+    | '/_authenticated/dashboard/commissions'
+    | '/_authenticated/dashboard/credit-line'
     | '/_authenticated/dashboard/marketplace'
     | '/_authenticated/dashboard/my-workshops'
+    | '/_authenticated/dashboard/parts'
     | '/_authenticated/dashboard/purchases'
+    | '/_authenticated/dashboard/service-orders'
+    | '/_authenticated/dashboard/services'
     | '/_authenticated/dashboard/settings'
     | '/_authenticated/dashboard/vehicles'
     | '/_authenticated/dashboard/workshops'
     | '/_authenticated/dashboard/parts/$id'
     | '/_authenticated/dashboard/purchases/$purchaseId'
+    | '/_authenticated/dashboard/service-orders/$orderId'
+    | '/_authenticated/dashboard/admin/service-orders/$orderId'
     | '/_authenticated/dashboard/my-workshops/$workshopId/sales'
+    | '/_authenticated/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId'
+    | '/_authenticated/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -270,11 +426,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardSettingsRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/_authenticated/dashboard/services': {
+      id: '/_authenticated/dashboard/services'
+      path: '/services'
+      fullPath: '/dashboard/services'
+      preLoaderRoute: typeof AuthenticatedDashboardServicesRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/service-orders': {
+      id: '/_authenticated/dashboard/service-orders'
+      path: '/service-orders'
+      fullPath: '/dashboard/service-orders'
+      preLoaderRoute: typeof AuthenticatedDashboardServiceOrdersRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
     '/_authenticated/dashboard/purchases': {
       id: '/_authenticated/dashboard/purchases'
       path: '/purchases'
       fullPath: '/dashboard/purchases'
       preLoaderRoute: typeof AuthenticatedDashboardPurchasesRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/parts': {
+      id: '/_authenticated/dashboard/parts'
+      path: '/parts'
+      fullPath: '/dashboard/parts'
+      preLoaderRoute: typeof AuthenticatedDashboardPartsRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/_authenticated/dashboard/my-workshops': {
@@ -291,6 +468,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardMarketplaceRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/_authenticated/dashboard/credit-line': {
+      id: '/_authenticated/dashboard/credit-line'
+      path: '/credit-line'
+      fullPath: '/dashboard/credit-line'
+      preLoaderRoute: typeof AuthenticatedDashboardCreditLineRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/commissions': {
+      id: '/_authenticated/dashboard/commissions'
+      path: '/commissions'
+      fullPath: '/dashboard/commissions'
+      preLoaderRoute: typeof AuthenticatedDashboardCommissionsRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
     '/_authenticated/dashboard/checkout': {
       id: '/_authenticated/dashboard/checkout'
       path: '/checkout'
@@ -305,6 +496,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardCartRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/_authenticated/dashboard/admin': {
+      id: '/_authenticated/dashboard/admin'
+      path: '/admin'
+      fullPath: '/dashboard/admin'
+      preLoaderRoute: typeof AuthenticatedDashboardAdminRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/_authenticated/dashboard/service-orders/$orderId': {
+      id: '/_authenticated/dashboard/service-orders/$orderId'
+      path: '/$orderId'
+      fullPath: '/dashboard/service-orders/$orderId'
+      preLoaderRoute: typeof AuthenticatedDashboardServiceOrdersOrderIdRouteImport
+      parentRoute: typeof AuthenticatedDashboardServiceOrdersRoute
+    }
     '/_authenticated/dashboard/purchases/$purchaseId': {
       id: '/_authenticated/dashboard/purchases/$purchaseId'
       path: '/$purchaseId'
@@ -314,10 +519,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/dashboard/parts/$id': {
       id: '/_authenticated/dashboard/parts/$id'
-      path: '/parts/$id'
+      path: '/$id'
       fullPath: '/dashboard/parts/$id'
       preLoaderRoute: typeof AuthenticatedDashboardPartsIdRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
+      parentRoute: typeof AuthenticatedDashboardPartsRoute
     }
     '/_authenticated/dashboard/my-workshops/$workshopId/sales': {
       id: '/_authenticated/dashboard/my-workshops/$workshopId/sales'
@@ -326,22 +531,90 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteImport
       parentRoute: typeof AuthenticatedDashboardMyWorkshopsRoute
     }
+    '/_authenticated/dashboard/admin/service-orders/$orderId': {
+      id: '/_authenticated/dashboard/admin/service-orders/$orderId'
+      path: '/service-orders/$orderId'
+      fullPath: '/dashboard/admin/service-orders/$orderId'
+      preLoaderRoute: typeof AuthenticatedDashboardAdminServiceOrdersOrderIdRouteImport
+      parentRoute: typeof AuthenticatedDashboardAdminRoute
+    }
+    '/_authenticated/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId': {
+      id: '/_authenticated/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId'
+      path: '/service-orders/$orderId'
+      fullPath: '/dashboard/my-workshops/$workshopId/sales/service-orders/$orderId'
+      preLoaderRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRouteImport
+      parentRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
+    }
+    '/_authenticated/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId': {
+      id: '/_authenticated/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId'
+      path: '/purchases/$purchaseId'
+      fullPath: '/dashboard/my-workshops/$workshopId/sales/purchases/$purchaseId'
+      preLoaderRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRouteImport
+      parentRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
+    }
   }
 }
 
+interface AuthenticatedDashboardAdminRouteChildren {
+  AuthenticatedDashboardAdminServiceOrdersOrderIdRoute: typeof AuthenticatedDashboardAdminServiceOrdersOrderIdRoute
+}
+
+const AuthenticatedDashboardAdminRouteChildren: AuthenticatedDashboardAdminRouteChildren =
+  {
+    AuthenticatedDashboardAdminServiceOrdersOrderIdRoute:
+      AuthenticatedDashboardAdminServiceOrdersOrderIdRoute,
+  }
+
+const AuthenticatedDashboardAdminRouteWithChildren =
+  AuthenticatedDashboardAdminRoute._addFileChildren(
+    AuthenticatedDashboardAdminRouteChildren,
+  )
+
+interface AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteChildren {
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute
+}
+
+const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteChildren: AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteChildren =
+  {
+    AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute:
+      AuthenticatedDashboardMyWorkshopsWorkshopIdSalesPurchasesPurchaseIdRoute,
+    AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute:
+      AuthenticatedDashboardMyWorkshopsWorkshopIdSalesServiceOrdersOrderIdRoute,
+  }
+
+const AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteWithChildren =
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute._addFileChildren(
+    AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteChildren,
+  )
+
 interface AuthenticatedDashboardMyWorkshopsRouteChildren {
-  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute
+  AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute: typeof AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteWithChildren
 }
 
 const AuthenticatedDashboardMyWorkshopsRouteChildren: AuthenticatedDashboardMyWorkshopsRouteChildren =
   {
     AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute:
-      AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRoute,
+      AuthenticatedDashboardMyWorkshopsWorkshopIdSalesRouteWithChildren,
   }
 
 const AuthenticatedDashboardMyWorkshopsRouteWithChildren =
   AuthenticatedDashboardMyWorkshopsRoute._addFileChildren(
     AuthenticatedDashboardMyWorkshopsRouteChildren,
+  )
+
+interface AuthenticatedDashboardPartsRouteChildren {
+  AuthenticatedDashboardPartsIdRoute: typeof AuthenticatedDashboardPartsIdRoute
+}
+
+const AuthenticatedDashboardPartsRouteChildren: AuthenticatedDashboardPartsRouteChildren =
+  {
+    AuthenticatedDashboardPartsIdRoute: AuthenticatedDashboardPartsIdRoute,
+  }
+
+const AuthenticatedDashboardPartsRouteWithChildren =
+  AuthenticatedDashboardPartsRoute._addFileChildren(
+    AuthenticatedDashboardPartsRouteChildren,
   )
 
 interface AuthenticatedDashboardPurchasesRouteChildren {
@@ -359,32 +632,62 @@ const AuthenticatedDashboardPurchasesRouteWithChildren =
     AuthenticatedDashboardPurchasesRouteChildren,
   )
 
+interface AuthenticatedDashboardServiceOrdersRouteChildren {
+  AuthenticatedDashboardServiceOrdersOrderIdRoute: typeof AuthenticatedDashboardServiceOrdersOrderIdRoute
+}
+
+const AuthenticatedDashboardServiceOrdersRouteChildren: AuthenticatedDashboardServiceOrdersRouteChildren =
+  {
+    AuthenticatedDashboardServiceOrdersOrderIdRoute:
+      AuthenticatedDashboardServiceOrdersOrderIdRoute,
+  }
+
+const AuthenticatedDashboardServiceOrdersRouteWithChildren =
+  AuthenticatedDashboardServiceOrdersRoute._addFileChildren(
+    AuthenticatedDashboardServiceOrdersRouteChildren,
+  )
+
 interface AuthenticatedDashboardRouteChildren {
+  AuthenticatedDashboardAdminRoute: typeof AuthenticatedDashboardAdminRouteWithChildren
   AuthenticatedDashboardCartRoute: typeof AuthenticatedDashboardCartRoute
   AuthenticatedDashboardCheckoutRoute: typeof AuthenticatedDashboardCheckoutRoute
+  AuthenticatedDashboardCommissionsRoute: typeof AuthenticatedDashboardCommissionsRoute
+  AuthenticatedDashboardCreditLineRoute: typeof AuthenticatedDashboardCreditLineRoute
   AuthenticatedDashboardMarketplaceRoute: typeof AuthenticatedDashboardMarketplaceRoute
   AuthenticatedDashboardMyWorkshopsRoute: typeof AuthenticatedDashboardMyWorkshopsRouteWithChildren
+  AuthenticatedDashboardPartsRoute: typeof AuthenticatedDashboardPartsRouteWithChildren
   AuthenticatedDashboardPurchasesRoute: typeof AuthenticatedDashboardPurchasesRouteWithChildren
+  AuthenticatedDashboardServiceOrdersRoute: typeof AuthenticatedDashboardServiceOrdersRouteWithChildren
+  AuthenticatedDashboardServicesRoute: typeof AuthenticatedDashboardServicesRoute
   AuthenticatedDashboardSettingsRoute: typeof AuthenticatedDashboardSettingsRoute
   AuthenticatedDashboardVehiclesRoute: typeof AuthenticatedDashboardVehiclesRoute
   AuthenticatedDashboardWorkshopsRoute: typeof AuthenticatedDashboardWorkshopsRoute
-  AuthenticatedDashboardPartsIdRoute: typeof AuthenticatedDashboardPartsIdRoute
 }
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
   {
+    AuthenticatedDashboardAdminRoute:
+      AuthenticatedDashboardAdminRouteWithChildren,
     AuthenticatedDashboardCartRoute: AuthenticatedDashboardCartRoute,
     AuthenticatedDashboardCheckoutRoute: AuthenticatedDashboardCheckoutRoute,
+    AuthenticatedDashboardCommissionsRoute:
+      AuthenticatedDashboardCommissionsRoute,
+    AuthenticatedDashboardCreditLineRoute:
+      AuthenticatedDashboardCreditLineRoute,
     AuthenticatedDashboardMarketplaceRoute:
       AuthenticatedDashboardMarketplaceRoute,
     AuthenticatedDashboardMyWorkshopsRoute:
       AuthenticatedDashboardMyWorkshopsRouteWithChildren,
+    AuthenticatedDashboardPartsRoute:
+      AuthenticatedDashboardPartsRouteWithChildren,
     AuthenticatedDashboardPurchasesRoute:
       AuthenticatedDashboardPurchasesRouteWithChildren,
+    AuthenticatedDashboardServiceOrdersRoute:
+      AuthenticatedDashboardServiceOrdersRouteWithChildren,
+    AuthenticatedDashboardServicesRoute: AuthenticatedDashboardServicesRoute,
     AuthenticatedDashboardSettingsRoute: AuthenticatedDashboardSettingsRoute,
     AuthenticatedDashboardVehiclesRoute: AuthenticatedDashboardVehiclesRoute,
     AuthenticatedDashboardWorkshopsRoute: AuthenticatedDashboardWorkshopsRoute,
-    AuthenticatedDashboardPartsIdRoute: AuthenticatedDashboardPartsIdRoute,
   }
 
 const AuthenticatedDashboardRouteWithChildren =
@@ -408,6 +711,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
