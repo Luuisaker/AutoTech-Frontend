@@ -53,6 +53,7 @@ import {
 } from "../../lib/api";
 import { getBcvRate, getBcvRateForDate, formatBcv } from "../../lib/bcv";
 import { useAuth } from "../../lib/auth-context";
+import { useLocale } from "../../lib/locale-context";
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
   PAID: "Pagada",
@@ -78,14 +79,6 @@ const ORDER_STATUS_STYLES: Record<string, string> = {
   PENDING_VERIFICATION: "border border-sky-500/30 bg-sky-500/10 text-sky-400",
 };
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  BANK_TRANSFER: "Transferencia bancaria",
-  MOBILE_PAYMENT: "Pago móvil",
-  CASH: "Efectivo",
-  ZELLE: "Zelle",
-  ZINLI: "Zinli",
-  OTHER: "Otro",
-};
 
 const INSTALLMENT_STATUS_STYLES: Record<string, string> = {
   PAID: "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
@@ -94,12 +87,6 @@ const INSTALLMENT_STATUS_STYLES: Record<string, string> = {
   OVERDUE: "border border-red-500/30 bg-red-500/10 text-red-400",
 };
 
-const INSTALLMENT_STATUS_LABELS: Record<string, string> = {
-  PAID: "Pago registrado",
-  PENDING: "Pendiente",
-  PENDING_VERIFICATION: "Pendiente",
-  OVERDUE: "Vencido",
-};
 
 export function PurchaseDetailPage() {
   const location = useLocation();
@@ -107,11 +94,30 @@ export function PurchaseDetailPage() {
   const purchaseId = params.purchaseId ?? location.pathname.split("/").pop() ?? "";
   const queryClient = useQueryClient();
   const { roles } = useAuth();
+  const { t } = useLocale();
 
   const isClient = roles.includes("CLIENT");
   const isWorkshopOwner = roles.includes("WORKSHOP_OWNER");
   const isAdmin = roles.includes("ADMIN");
   const isWorkshopContext = location.pathname.includes("/my-workshops/");
+
+  const pd = (key: string, fallback?: string, params?: Record<string, string | number>) =>
+    t(`purchaseDetail.${key}`, fallback, params);
+  const orderStatusLabel = (status: string) =>
+    t(`purchases.status.${status}`, ORDER_STATUS_LABELS[status] ?? status);
+  const installmentStatusLabel = (status: string) =>
+    t(`purchaseDetail.installmentStatus.${status}`, status);
+  const paymentMethodLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      bank_transfer: t("checkout.paymentTypes.bank_transfer", "Bank transfer"),
+      mobile_payment: t("checkout.paymentTypes.mobile_payment", "Mobile payment"),
+      cash: t("checkout.paymentTypes.cash", "Cash"),
+      zelle: t("checkout.paymentTypes.zelle", "Zelle"),
+      zinli: t("checkout.paymentTypes.zinli", "Zinli"),
+      other: t("common.notAvailable", "Other"),
+    };
+    return labels[type] ?? type;
+  };
 
   const backLink = (() => {
     const match = location.pathname.match(/\/dashboard\/my-workshops\/([^/]+)/);
@@ -126,9 +132,9 @@ export function PurchaseDetailPage() {
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="ml-empty-state py-16">
           <CreditCard className="ml-empty-state-icon" />
-          <p className="ml-empty-state-title">ID de orden no válido</p>
+          <p className="ml-empty-state-title">{pd("invalidId")}</p>
           <Link to={backLink} className="ml-btn ml-btn-primary">
-            Volver
+            {t("common.back", "Back")}
           </Link>
         </div>
       </div>
@@ -198,10 +204,10 @@ export function PurchaseDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
-      toast.success("Orden marcada como recibida");
+      toast.success(pd("orderMarkedReceived"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al marcar como recibida";
+      const msg = err?.response?.data?.message ?? err?.message ?? pd("errorMarkingReceived");
       toast.error(msg);
     },
   });
@@ -213,10 +219,10 @@ export function PurchaseDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       queryClient.invalidateQueries({ queryKey: ["workshop-orders"] });
       queryClient.invalidateQueries({ queryKey: ["workshop-sales"] });
-      toast.success("Orden cerrada exitosamente");
+      toast.success(pd("orderClosed"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al cerrar orden";
+      const msg = err?.response?.data?.message ?? err?.message ?? pd("errorClosingOrder");
       toast.error(msg);
     },
   });
@@ -227,13 +233,13 @@ export function PurchaseDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
       queryClient.invalidateQueries({ queryKey: ["workshop-orders"] });
-      toast.success("Orden marcada como enviada");
+      toast.success(pd("orderMarkedShipped"));
       setShowShipModal(false);
       setShipTracking("");
       setShipNotes("");
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al marcar como enviada";
+      const msg = err?.response?.data?.message ?? err?.message ?? pd("errorMarkingShipped");
       toast.error(msg);
     },
   });
@@ -254,14 +260,14 @@ export function PurchaseDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
       toast.success(
-        isClient ? "Taller calificado exitosamente" : "Cliente calificado exitosamente",
+        isClient ? pd("workshopRated") : pd("clientRated"),
       );
       setShowRatingModal(false);
       setRatingValue(5);
       setRatingComment("");
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al calificar";
+      const msg = err?.response?.data?.message ?? err?.message ?? pd("errorRating");
       toast.error(msg);
     },
   });
@@ -274,7 +280,7 @@ export function PurchaseDetailPage() {
         queryKey: ["order-installments", purchaseId],
       });
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
-      toast.success("Pago registrado exitosamente");
+      toast.success(pd("paymentRegisteredToast"));
       setPayingInstallment(null);
       setPaymentMethod("BANK_TRANSFER");
       setReferenceNumber("");
@@ -282,7 +288,7 @@ export function PurchaseDetailPage() {
     },
     onError: (err: AxiosError<{ message?: string; detail?: string }>) => {
       const data = err.response?.data;
-      const msg = data?.message ?? data?.detail ?? "Error al registrar el pago";
+      const msg = data?.message ?? data?.detail ?? pd("errorRegisteringPayment");
       toast.error(msg);
     },
   });
@@ -295,13 +301,13 @@ export function PurchaseDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
       queryClient.invalidateQueries({ queryKey: ["credit-line"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Pago verificado correctamente");
+      toast.success(pd("paymentVerified"));
       setPayingInstallment(null);
       setMarkPaidInstallment(null);
     },
     onError: (err: AxiosError<{ message?: string; detail?: string }>) => {
       const data = err.response?.data;
-      const msg = data?.message ?? data?.detail ?? "Error al marcar cuota";
+      const msg = data?.message ?? data?.detail ?? pd("errorMarkingInstallment");
       toast.error(msg);
     },
   });
@@ -313,12 +319,12 @@ export function PurchaseDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
       queryClient.invalidateQueries({ queryKey: ["credit-line"] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Cuota rechazada. El cliente debe registrar el pago nuevamente.");
+      toast.success(pd("installmentRejected"));
       setPayingInstallment(null);
     },
     onError: (err: AxiosError<{ message?: string; detail?: string }>) => {
       const data = err.response?.data;
-      const msg = data?.message ?? data?.detail ?? "Error al marcar cuota";
+      const msg = data?.message ?? data?.detail ?? pd("errorMarkingInstallment");
       toast.error(msg);
     },
   });
@@ -338,7 +344,7 @@ export function PurchaseDetailPage() {
     if (!payingInstallment) return;
     const isCash = paymentMethod === "CASH";
     if (!isCash && !referenceNumber.trim()) {
-      toast.error("Ingresa el número de referencia");
+      toast.error(pd("enterReference"));
       return;
     }
     payMutation.mutate({
@@ -362,21 +368,21 @@ export function PurchaseDetailPage() {
         >
           <ArrowLeft className="h-4 w-4" />
           {location.pathname.includes("/my-workshops/")
-            ? "Historial de ventas"
+            ? pd("salesHistory")
             : isAdmin
-              ? "Panel Admin"
-              : "Mis órdenes"}
+              ? pd("adminPanel")
+              : pd("myOrders")}
         </Link>
       )}
 
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Detalle de orden</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{pd("title")}</h1>
           {order && (
             <span
               className={`ml-badge ${ORDER_STATUS_STYLES[order.status] || ORDER_STATUS_STYLES.PAID}`}
             >
-              {ORDER_STATUS_LABELS[order.status] ?? order.status}
+              {orderStatusLabel(order.status)}
             </span>
           )}
         </div>
@@ -393,11 +399,11 @@ export function PurchaseDetailPage() {
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Total</p>
+              <p className="ml-stat-label">{pd("total")}</p>
               <p className="ml-stat-value text-lg">${order.total_amount.toFixed(2)}</p>
             </div>
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Pagado</p>
+              <p className="ml-stat-label">{pd("paid")}</p>
               <p className="ml-stat-value text-lg text-emerald-400">
                 $
                 {installmentsList
@@ -407,14 +413,14 @@ export function PurchaseDetailPage() {
               </p>
             </div>
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Pagos</p>
+              <p className="ml-stat-label">{pd("payments")}</p>
               <p className="ml-stat-value text-lg">
                 {paidCount}/{installmentsList.length}
                 {isAllPaid && <CheckCircle2 className="ml-1 inline h-5 w-5 text-emerald-400" />}
               </p>
             </div>
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Fecha</p>
+              <p className="ml-stat-label">{pd("date")}</p>
               <p className="ml-stat-value text-sm">
                 {new Date(order.created_at).toLocaleDateString("es-ES", {
                   year: "numeric",
@@ -429,7 +435,7 @@ export function PurchaseDetailPage() {
             <div className="ml-card p-5">
               <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                 <Package className="h-4 w-4" />
-                Productos ({order.items?.length ?? 0})
+                {pd("products")} ({order.items?.length ?? 0})
               </h2>
               <div className="divide-y divide-border">
                 {order.items?.map((item: OrderItemDTO) => (
@@ -477,18 +483,18 @@ export function PurchaseDetailPage() {
                                 )}
                                 <div>
                                   <p className="text-xs font-medium">
-                                    {idx === 0 ? "Pago inicial" : `Cuota ${idx}`} —{" "}
-                                    {INSTALLMENT_STATUS_LABELS[inst.status] ?? inst.status}
+                                    {idx === 0 ? pd("downPayment") : pd("installment", undefined, { n: idx })} —{" "}
+                                    {installmentStatusLabel(inst.status)}
                                   </p>
                                   <p className="text-[11px] text-muted-foreground">
                                     {inst.due_date && (
                                       <>
-                                        Vence: {new Date(inst.due_date).toLocaleDateString("es-ES")}
+                                        {pd("dueDate")} {new Date(inst.due_date).toLocaleDateString("es-ES")}
                                         {inst.paid_at && " · "}
                                       </>
                                     )}
                                     {inst.paid_at &&
-                                      `Pago registrado: ${new Date(inst.paid_at).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+                                      `${pd("paymentRegistered")} ${new Date(inst.paid_at).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
                                   </p>
                                 </div>
                               </div>
@@ -498,7 +504,7 @@ export function PurchaseDetailPage() {
                                 </p>
                                 {inst.status !== "PAID" && (
                                   <p className="text-[10px] text-primary/70">
-                                    +{inst.amount.toFixed(2)} pts
+                                    {pd("ptsOnTime", "+{amount} pts", { amount: inst.amount.toFixed(2) })}
                                   </p>
                                 )}
                               </div>
@@ -515,50 +521,50 @@ export function PurchaseDetailPage() {
               <div className="ml-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <Truck className="h-4 w-4" />
-                  Información de entrega
+                  {pd("deliveryInfo")}
                 </h2>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Método:</span>
+                    <span className="text-muted-foreground">{pd("method")}</span>
                     <span className="font-medium">
                       {order.delivery_method === "SHIPPING"
-                        ? "Envío nacional"
-                        : "Retirar en el taller"}
+                        ? pd("nationalShipping")
+                        : pd("pickupAtWorkshop")}
                     </span>
                   </div>
                   {order.delivery_address && (
                     <div className="flex items-start gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-muted-foreground">Dirección:</span>
+                      <span className="text-muted-foreground">{pd("address")}</span>
                       <span className="font-medium">{order.delivery_address}</span>
                     </div>
                   )}
                   {order.delivery_fee != null && order.delivery_fee > 0 && (
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Costo de envío:</span>
+                      <span className="text-muted-foreground">{pd("shippingCost")}</span>
                       <span className="font-medium">${order.delivery_fee.toFixed(2)}</span>
                     </div>
                   )}
                   {order.tracking_number && (
                     <div className="flex items-start gap-2">
                       <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-muted-foreground">Tracking:</span>
+                      <span className="text-muted-foreground">{pd("tracking")}</span>
                       <span className="font-medium">{order.tracking_number}</span>
                     </div>
                   )}
                   {order.shipping_notes && (
                     <div className="flex items-start gap-2">
                       <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-muted-foreground">Agencia de envío:</span>
+                      <span className="text-muted-foreground">{pd("shippingAgency")}</span>
                       <span className="font-medium">{order.shipping_notes}</span>
                     </div>
                   )}
                   {order.shipped_at && (
                     <div className="flex items-start gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
-                      <span className="text-muted-foreground">Fecha de envío:</span>
+                      <span className="text-muted-foreground">{pd("shippingDate")}</span>
                       <span className="font-medium">
                         {new Date(order.shipped_at).toLocaleDateString("es-ES", {
                           day: "numeric",
@@ -578,14 +584,14 @@ export function PurchaseDetailPage() {
               <div className="ml-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <Store className="h-4 w-4" />
-                  Taller
+                  {pd("workshop")}
                 </h2>
                 <p className="text-sm font-medium">{order.workshop_name}</p>
                 {isClient && (
                   <>
                     {order.workshop_rif && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        RIF: {order.workshop_rif}
+                        {pd("rif")} {order.workshop_rif}
                       </p>
                     )}
                     {order.workshop_address && (
@@ -597,16 +603,16 @@ export function PurchaseDetailPage() {
                   <div className="mt-3 space-y-1 border-t border-border/40 pt-3 text-xs text-muted-foreground">
                     <p className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      Cliente:{" "}
+                      {pd("client")}{" "}
                       {order.user_first_name
                         ? `${order.user_first_name} ${order.user_last_name}`.trim()
                         : "—"}
                     </p>
-                    {order.user_ci && <p>CI: {order.user_ci}</p>}
+                    {order.user_ci && <p>{pd("ci")} {order.user_ci}</p>}
                     {order.user_email && <p>{order.user_email}</p>}
                     <p className="flex items-center gap-1 pt-1">
                       <ShieldCheck className="h-3 w-3" />
-                      {isAdmin ? "Vista Admin" : "Vista Taller"}
+                      {isAdmin ? pd("adminView") : pd("workshopView")}
                     </p>
                   </div>
                 )}
@@ -621,10 +627,10 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-sky-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-400">
                     <Star className="h-4 w-4" />
-                    Calificar taller
+                    {pd("rateWorkshop")}
                   </h2>
                   <p className="mb-3 text-sm text-muted-foreground">
-                    ¿Cómo fue tu experiencia con {order.workshop_name}?
+                    {pd("rateWorkshopQuestion", undefined, { name: order.workshop_name ?? "" })}
                   </p>
                   <button
                     onClick={() => {
@@ -633,7 +639,7 @@ export function PurchaseDetailPage() {
                     className="ml-btn ml-btn-primary"
                   >
                     <Star className="h-4 w-4" />
-                    Calificar taller
+                    {pd("rateWorkshop")}
                   </button>
                 </div>
               )}
@@ -645,10 +651,10 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-sky-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-400">
                     <Star className="h-4 w-4" />
-                    Calificar comprador
+                    {pd("rateBuyer")}
                   </h2>
                   <p className="mb-3 text-sm text-muted-foreground">
-                    ¿Cómo fue tu experiencia con este comprador?
+                    {pd("rateBuyerQuestion")}
                   </p>
                   <button
                     onClick={() => {
@@ -657,7 +663,7 @@ export function PurchaseDetailPage() {
                     className="ml-btn ml-btn-primary"
                   >
                     <Star className="h-4 w-4" />
-                    Calificar comprador
+                    {pd("rateBuyer")}
                   </button>
                 </div>
               )}
@@ -670,14 +676,14 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-blue-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-blue-400">
                     <Package className="h-4 w-4" />
-                    Marcar como enviado
+                    {pd("markAsShipped")}
                   </h2>
                   <p className="mb-3 text-sm text-muted-foreground">
-                    Ingresa el número de seguimiento y la agencia de envío.
+                    {pd("enterTrackingAndAgency")}
                   </p>
                   <button onClick={() => setShowShipModal(true)} className="ml-btn ml-btn-primary">
                     <Package className="h-4 w-4 mr-2" />
-                    Marcar como enviado
+                    {pd("markAsShipped")}
                   </button>
                 </div>
               )}
@@ -691,10 +697,10 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-emerald-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-emerald-400">
                     <CheckCircle2 className="h-4 w-4" />
-                    Confirmar recepción
+                    {pd("confirmReceipt")}
                   </h2>
                   <p className="mb-3 text-sm text-muted-foreground">
-                    ¿Has recibido tu pedido? Confirma para marcarlo como recibido.
+                    {pd("confirmReceiptQuestion")}
                   </p>
                   <button
                     onClick={() => markReceivedMutation.mutate()}
@@ -702,7 +708,7 @@ export function PurchaseDetailPage() {
                     className="ml-btn ml-btn-primary"
                   >
                     {markReceivedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Confirmar recepción
+                    {pd("confirmReceipt")}
                   </button>
                 </div>
               )}
@@ -715,26 +721,26 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-emerald-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-emerald-400">
                     <Package className="h-4 w-4" />
-                    Producto enviado
+                    {pd("productShipped")}
                   </h2>
                   <p className="mb-3 text-sm text-muted-foreground">
-                    El taller ha marcado tu pedido como enviado.
+                    {pd("workshopMarkedShipped")}
                   </p>
                   {order.tracking_number && (
                     <p className="mb-1 text-sm">
-                      <span className="text-muted-foreground">Seguimiento:</span>{" "}
+                      <span className="text-muted-foreground">{pd("trackingLabel")}</span>{" "}
                       <span className="font-mono font-medium">{order.tracking_number}</span>
                     </p>
                   )}
                   {order.shipping_notes && (
                     <p className="mb-1 text-sm">
-                      <span className="text-muted-foreground">Agencia de envío:</span>{" "}
+                      <span className="text-muted-foreground">{pd("shippingAgency")}</span>{" "}
                       <span className="font-medium">{order.shipping_notes}</span>
                     </p>
                   )}
                   {order.shipped_at && (
                     <p className="mb-3 text-sm">
-                      <span className="text-muted-foreground">Fecha de envío:</span>{" "}
+                      <span className="text-muted-foreground">{pd("shippingDate")}</span>{" "}
                       <span className="font-medium">
                         {new Date(order.shipped_at).toLocaleDateString("es-ES", {
                           year: "numeric",
@@ -752,7 +758,7 @@ export function PurchaseDetailPage() {
                     className="ml-btn ml-btn-primary"
                   >
                     {markReceivedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Confirmar recepción
+                    {pd("confirmReceipt")}
                   </button>
                 </div>
               )}
@@ -765,10 +771,10 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-sky-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-400">
                     <CheckCircle2 className="h-4 w-4" />
-                    Recepción confirmada
+                    {pd("receiptConfirmed")}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Has confirmado la recepción. Esperando que el taller cierre la orden.
+                    {pd("waitingWorkshopClose")}
                   </p>
                 </div>
               )}
@@ -785,10 +791,10 @@ export function PurchaseDetailPage() {
                 <div className="ml-card p-5 border-sky-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-400">
                     <CheckCircle2 className="h-4 w-4" />
-                    Cerrar orden
+                    {pd("closeOrder")}
                   </h2>
                   <p className="mb-3 text-sm text-muted-foreground">
-                    Confirma el cierre de esta orden como taller.
+                    {pd("closeOrderConfirm")}
                   </p>
                   <button
                     onClick={() => closeOrderMutation.mutate()}
@@ -796,7 +802,7 @@ export function PurchaseDetailPage() {
                     className="ml-btn ml-btn-primary"
                   >
                     {closeOrderMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Cerrar orden
+                    {pd("closeOrder")}
                   </button>
                 </div>
               )}
@@ -804,11 +810,11 @@ export function PurchaseDetailPage() {
             <div className="ml-card p-5">
               <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                 <CreditCard className="h-4 w-4" />
-                Pagos ({installmentsList.length})
+                {pd("payments")} ({installmentsList.length})
               </h2>
               {installmentsError && (
                 <p className="mb-3 text-sm text-destructive">
-                  Error al cargar las cuotas. Intenta de nuevo.
+                  {pd("errorLoadingInstallments")}
                 </p>
               )}
 
@@ -842,7 +848,7 @@ export function PurchaseDetailPage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold">
-                          {index === 0 ? "Pago inicial" : `Cuota ${index}`}
+                          {index === 0 ? pd("downPayment") : pd("installment", undefined, { n: index })}
                         </p>
                         <div className="mt-1 flex items-baseline gap-2 font-mono text-2xl font-bold text-primary">
                           <span>${installment.amount.toFixed(2)}</span>
@@ -857,18 +863,18 @@ export function PurchaseDetailPage() {
                         </div>
                         {installment.status !== "PAID" && (
                           <p className="mt-0.5 text-[11px] text-primary/70">
-                            +{installment.amount.toFixed(2)} pts al pagar a tiempo
+                            {pd("ptsOnTime", "+{amount} pts", { amount: installment.amount.toFixed(2) })}
                           </p>
                         )}
                         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                           {installment.due_date && (
                             <span>
-                              Vence: {new Date(installment.due_date).toLocaleDateString("es-ES")}
+                              {pd("dueDate")} {new Date(installment.due_date).toLocaleDateString("es-ES")}
                             </span>
                           )}
                           {installment.status === "PAID" && installment.paid_at && (
                             <span>
-                              Pago registrado:{" "}
+                              {pd("paymentRegistered")}{" "}
                               {new Date(installment.paid_at).toLocaleDateString("es-ES", {
                                 day: "numeric",
                                 month: "short",
@@ -881,7 +887,7 @@ export function PurchaseDetailPage() {
                         </div>
                         {installment.rate && installment.rate > 0 && installment.rate_date && (
                           <p className="mt-0.5 text-[11px] text-muted-foreground/70">
-                            Tasa BCV: {installment.rate.toLocaleString("es-VE")} bs/$ ({new Date(installment.rate_date).toLocaleDateString("es-ES")})
+                            {pd("bcvRate")} {installment.rate.toLocaleString("es-VE")} bs/$ ({new Date(installment.rate_date).toLocaleDateString("es-ES")})
                           </p>
                         )}
                         {installment.payment_method &&
@@ -892,22 +898,21 @@ export function PurchaseDetailPage() {
                               const pm = paymentMethods?.find((m) => m.id === installment.payment_method);
                               if (pm) {
                                 return pm.type === "bank_transfer"
-                                  ? "Transferencia bancaria"
+                                  ? paymentMethodLabel("bank_transfer")
                                   : pm.type === "mobile_payment"
-                                    ? "Pago móvil"
+                                    ? paymentMethodLabel("mobile_payment")
                                     : pm.type === "cash"
-                                      ? "Efectivo"
+                                      ? paymentMethodLabel("cash")
                                       : pm.type === "zelle"
-                                        ? "Zelle"
+                                        ? paymentMethodLabel("zelle")
                                         : pm.type === "zinli"
-                                          ? "Zinli"
+                                          ? paymentMethodLabel("zinli")
                                           : pm.type;
                               }
-                              return PAYMENT_METHOD_LABELS[installment.payment_method] ??
-                                installment.payment_method;
+                              return paymentMethodLabel(installment.payment_method ?? "");
                             })()}
                             {installment.reference_number &&
-                              ` · Ref: ${installment.reference_number}`}
+                              ` · ${pd("ref")} ${installment.reference_number}`}
                           </p>
                         )}
                       </div>
@@ -917,7 +922,7 @@ export function PurchaseDetailPage() {
                       <span
                         className={`ml-badge ${INSTALLMENT_STATUS_STYLES[installment.status] || INSTALLMENT_STATUS_STYLES.PENDING}`}
                       >
-                        {INSTALLMENT_STATUS_LABELS[installment.status] ?? installment.status}
+                        {installmentStatusLabel(installment.status)}
                       </span>
                       {installment.status === "PENDING" && isClient && !isWorkshopContext && (
                         <button
@@ -928,7 +933,7 @@ export function PurchaseDetailPage() {
                           }}
                           className="ml-btn ml-btn-primary text-xs py-1.5"
                         >
-                          Pagar
+                          {pd("pay")}
                         </button>
                       )}
                       {installment.status === "PENDING_VERIFICATION" && isWorkshopOwner && (
@@ -938,7 +943,7 @@ export function PurchaseDetailPage() {
                           }}
                           className="ml-btn ml-btn-primary text-xs py-1.5"
                         >
-                          Verificar
+                          {pd("verify")}
                         </button>
                       )}
                     </div>
@@ -951,7 +956,7 @@ export function PurchaseDetailPage() {
       ) : (
         <div className="ml-empty-state py-16">
           <CreditCard className="ml-empty-state-icon" />
-          <p className="ml-empty-state-title">No se encontró la orden</p>
+          <p className="ml-empty-state-title">{pd("orderNotFound")}</p>
         </div>
       )}
 
@@ -959,10 +964,10 @@ export function PurchaseDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
             <h2 className="text-lg font-semibold tracking-tight">
-              {isClient ? "Calificar taller" : "Calificar comprador"}
+              {isClient ? pd("rateWorkshop") : pd("rateBuyer")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isClient ? order.workshop_name : "Comprador"}
+              {isClient ? order.workshop_name : pd("buyer")}
             </p>
 
             <form
@@ -978,7 +983,7 @@ export function PurchaseDetailPage() {
             >
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Puntuación
+                  {pd("rating")}
                 </label>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -995,14 +1000,14 @@ export function PurchaseDetailPage() {
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Comentario <span className="text-muted-foreground/60">(opcional)</span>
+                  {pd("comment")} <span className="text-muted-foreground/60">{pd("optional")}</span>
                 </label>
                 <textarea
                   value={ratingComment}
                   onChange={(e) => setRatingComment(e.target.value)}
                   className="ml-input"
                   rows={3}
-                  placeholder="Cuéntanos tu experiencia..."
+                  placeholder={pd("commentPlaceholder")}
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
@@ -1012,7 +1017,7 @@ export function PurchaseDetailPage() {
                   disabled={rateMutation.isPending}
                   className="ml-btn ml-btn-outline"
                 >
-                  Cancelar
+                  {t("common.cancel", "Cancelar")}
                 </button>
                 <button
                   type="submit"
@@ -1020,7 +1025,7 @@ export function PurchaseDetailPage() {
                   className="ml-btn ml-btn-primary"
                 >
                   {rateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Enviar calificación
+                  {pd("sendRating")}
                 </button>
               </div>
             </form>
@@ -1031,9 +1036,9 @@ export function PurchaseDetailPage() {
       {payingInstallment && isClient && !isWorkshopContext && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
-            <h2 className="text-lg font-semibold tracking-tight">Registrar pago</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{pd("registerPayment")}</h2>
             <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-xs text-muted-foreground">Monto a pagar</p>
+              <p className="text-xs text-muted-foreground">{pd("amountToPay")}</p>
               {bcvRate && bcvRate > 0 && paymentMethod !== "ZELLE" && paymentMethod !== "ZINLI" && (
                 <p className="mt-1 flex items-baseline gap-2 font-mono text-2xl font-bold text-primary">
                   {formatBcv(payingInstallment.amount, bcvRate)}
@@ -1049,7 +1054,7 @@ export function PurchaseDetailPage() {
               )}
               {payingInstallment.due_date && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Vence: {new Date(payingInstallment.due_date).toLocaleDateString("es-ES")}
+                  {pd("dueDate")} {new Date(payingInstallment.due_date).toLocaleDateString("es-ES")}
                 </p>
               )}
             </div>
@@ -1057,7 +1062,7 @@ export function PurchaseDetailPage() {
             <form onSubmit={handlePay} className="mt-6 space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Método de pago
+                  {pd("paymentMethod")}
                 </label>
                 {paymentMethods && paymentMethods.length > 0 ? (
                   <div className="mt-2 space-y-2">
@@ -1066,16 +1071,16 @@ export function PurchaseDetailPage() {
                       const isSelected = paymentMethod === pmType;
                       const typeLabel =
                         pm.type === "bank_transfer"
-                          ? "Transferencia bancaria"
+                          ? paymentMethodLabel("bank_transfer")
                           : pm.type === "mobile_payment"
-                            ? "Pago móvil"
+                            ? paymentMethodLabel("mobile_payment")
                             : pm.type === "cash"
-                              ? "Efectivo"
+                              ? paymentMethodLabel("cash")
                               : pm.type === "zelle"
-                                ? "Zelle"
+                                ? paymentMethodLabel("zelle")
                                 : pm.type === "zinli"
-                                  ? "Zinli"
-                                  : "Otro";
+                                  ? paymentMethodLabel("zinli")
+                                  : t("common.other", "Other");
                       const typeColor =
                         pm.type === "bank_transfer"
                           ? "text-blue-400"
@@ -1136,13 +1141,13 @@ export function PurchaseDetailPage() {
                               )}
                               {!isSelected && pm.type === "cash" && (
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                  Pago en el taller
+                                  {pd("payAtWorkshop")}
                                 </p>
                               )}
                             </div>
                             {isSelected && (
                               <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                                Toca para deseleccionar
+                                {t("common.tapToDeselect", "Tap to deselect")}
                               </span>
                             )}
                           </button>
@@ -1152,25 +1157,25 @@ export function PurchaseDetailPage() {
                                 <div className="space-y-1">
                                   {pm.bank_name && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Banco:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("bankColon")}</span>{" "}
                                       {pm.bank_name}
                                     </p>
                                   )}
                                   {pm.account_number && (
                                     <p className="font-mono">
-                                      <span className="text-muted-foreground/70">Cuenta:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("accountColon")}</span>{" "}
                                       {pm.account_number}
                                     </p>
                                   )}
                                   {pm.account_holder && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Titular:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("holderColon")}</span>{" "}
                                       {pm.account_holder}
                                     </p>
                                   )}
                                   {pm.holder_ci && (
                                     <p>
-                                      <span className="text-muted-foreground/70">CI:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("ciColon")}</span>{" "}
                                       {pm.holder_ci}
                                     </p>
                                   )}
@@ -1180,19 +1185,19 @@ export function PurchaseDetailPage() {
                                 <div className="space-y-1">
                                   {pm.phone_number && (
                                     <p className="font-mono">
-                                      <span className="text-muted-foreground/70">Teléfono:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("phoneColon")}</span>{" "}
                                       {pm.phone_number}
                                     </p>
                                   )}
                                   {pm.holder_ci && (
                                     <p>
-                                      <span className="text-muted-foreground/70">CI:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("ciColon")}</span>{" "}
                                       {pm.holder_ci}
                                     </p>
                                   )}
                                   {pm.bank_name && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Banco:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("bankColon")}</span>{" "}
                                       {pm.bank_name}
                                     </p>
                                   )}
@@ -1200,24 +1205,24 @@ export function PurchaseDetailPage() {
                               )}
                               {pm.type === "cash" && (
                                 <p>
-                                  Paga en efectivo directamente en el taller al recoger el vehículo.
+                                  {t("checkout.payCashAtWorkshop", "Pay cash directly at the workshop when picking up.")}
                                 </p>
                               )}
                               {(pm.type === "zelle" || pm.type === "zinli") && (
                                 <div className="space-y-1">
                                   {pm.email && (
                                     <p className="font-mono">
-                                      <span className="text-muted-foreground/70">Email:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("emailColon")}</span>{" "}
                                       {pm.email}
                                     </p>
                                   )}
                                   {pm.account_holder && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Titular:</span>{" "}
+                                      <span className="text-muted-foreground/70">{pd("holderColon")}</span>{" "}
                                       {pm.account_holder}
                                     </p>
                                   )}
-                                  <p className="text-primary/70">Pago en USD — sin equivalente en Bs</p>
+                                  <p className="text-primary/70">{t("checkout.usdNoBs", "Payment in USD — no Bs equivalent")}</p>
                                 </div>
                               )}
                             </div>
@@ -1228,7 +1233,7 @@ export function PurchaseDetailPage() {
                   </div>
                 ) : (
                   <div className="ml-input w-full py-2 text-center text-sm text-muted-foreground">
-                    Este taller no tiene métodos de pago configurados
+                    {t("checkout.noPaymentMethods", "This workshop has no payment methods configured")}
                   </div>
                 )}
               </div>
@@ -1236,14 +1241,14 @@ export function PurchaseDetailPage() {
               {paymentMethod !== "CASH" && (
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Número de referencia
+                    {pd("referenceNumberLabel")}
                   </label>
                   <input
                     type="text"
                     value={referenceNumber}
                     onChange={(e) => setReferenceNumber(e.target.value)}
                     maxLength={100}
-                    placeholder="Nro. de transferencia"
+                    placeholder={pd("referencePlaceholder")}
                     className="ml-input"
                     required
                   />
@@ -1251,7 +1256,7 @@ export function PurchaseDetailPage() {
               )}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Fecha de pago
+                  {pd("paymentDate")}
                 </label>
                 <input
                   type="date"
@@ -1262,7 +1267,7 @@ export function PurchaseDetailPage() {
                   className="ml-input w-full"
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Se usará la tasa BCV de esta fecha para el cálculo en Bs
+                  {pd("bcvRateNote")}
                 </p>
               </div>
               {payingInstallment && (
@@ -1270,11 +1275,11 @@ export function PurchaseDetailPage() {
                   {dateBcvLoading ? (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Obteniendo tasa BCV...
+                      {pd("fetchingBcvRate")}
                     </div>
                   ) : dateBcvRate ? (
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm text-muted-foreground">Monto a pagar</span>
+                      <span className="text-sm text-muted-foreground">{pd("amountToPay")}</span>
                       <span className="font-mono text-lg font-bold text-primary">
                         {formatBcv(payingInstallment.amount, dateBcvRate)}
                         <span className="ml-1.5 text-sm font-normal text-muted-foreground">
@@ -1284,7 +1289,7 @@ export function PurchaseDetailPage() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Monto a pagar</span>
+                      <span className="text-sm text-muted-foreground">{pd("amountToPay")}</span>
                       <span className="text-lg font-semibold text-foreground">
                         ${payingInstallment.amount.toFixed(2)}
                       </span>
@@ -1292,21 +1297,21 @@ export function PurchaseDetailPage() {
                   )}
                   {payingInstallment.due_date && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Vence: {new Date(payingInstallment.due_date).toLocaleDateString("es-ES")}
+                      {pd("dueDate")} {new Date(payingInstallment.due_date).toLocaleDateString("es-ES")}
                     </p>
                   )}
                 </div>
               )}
               {paymentMethod === "CASH" && (
                 <p className="text-xs text-muted-foreground">
-                  Paga en efectivo directamente en el taller al recoger el vehículo.
+                  {t("checkout.payCashAtWorkshop", "Pay cash directly at the workshop when picking up.")}
                 </p>
               )}
 
               {payMutation.error && (
                 <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
                   {(payMutation.error as AxiosError<{ message?: string }>).response?.data
-                    ?.message ?? "Error al registrar el pago"}
+                    ?.message ?? pd("errorRegisteringPayment")}
                 </div>
               )}
 
@@ -1317,7 +1322,7 @@ export function PurchaseDetailPage() {
                   disabled={payMutation.isPending}
                   className="ml-btn ml-btn-outline"
                 >
-                  Cancelar
+                  {t("common.cancel", "Cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1325,7 +1330,7 @@ export function PurchaseDetailPage() {
                   className="ml-btn ml-btn-primary"
                 >
                   {payMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Registrar pago
+                  {pd("registerPayment")}
                 </button>
               </div>
             </form>
@@ -1336,9 +1341,9 @@ export function PurchaseDetailPage() {
       {payingInstallment && isWorkshopOwner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
-            <h2 className="text-lg font-semibold tracking-tight">Información de pago</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{pd("paymentInfo")}</h2>
             <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-xs text-muted-foreground">Monto</p>
+              <p className="text-xs text-muted-foreground">{pd("amount")}</p>
               {(() => {
                 const effectiveRate = (payingInstallment.rate && payingInstallment.rate > 0)
                   ? payingInstallment.rate
@@ -1353,7 +1358,7 @@ export function PurchaseDetailPage() {
                         </span>
                       </p>
                       <p className="mt-1 text-[11px] text-muted-foreground">
-                        Tasa BCV: {effectiveRate.toFixed(2)} Bs/$
+                        {pd("bcvRateLabel", undefined, { rate: effectiveRate.toFixed(2) })}
                         {payingInstallment.rate_date && (
                           <span className="ml-1">
                             — {new Date(payingInstallment.rate_date).toLocaleDateString("es-ES")}
@@ -1373,40 +1378,38 @@ export function PurchaseDetailPage() {
 
             <div className="mt-4 space-y-3">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Método de pago:</p>
+                <p className="text-xs font-medium text-muted-foreground">{pd("paymentMethodLabel")}</p>
                 <p className="text-sm">
                   {(() => {
                     const pm = paymentMethods?.find((m) => m.id === payingInstallment.payment_method);
                     if (pm) {
                       return pm.type === "bank_transfer"
-                        ? "Transferencia bancaria"
+                        ? paymentMethodLabel("bank_transfer")
                         : pm.type === "mobile_payment"
-                          ? "Pago móvil"
+                          ? paymentMethodLabel("mobile_payment")
                           : pm.type === "cash"
-                            ? "Efectivo"
+                            ? paymentMethodLabel("cash")
                             : pm.type === "zelle"
-                              ? "Zelle"
+                              ? paymentMethodLabel("zelle")
                               : pm.type === "zinli"
-                                ? "Zinli"
+                                ? paymentMethodLabel("zinli")
                                 : pm.type;
                     }
-                    return PAYMENT_METHOD_LABELS[
-                      payingInstallment.payment_method as keyof typeof PAYMENT_METHOD_LABELS
-                    ] || payingInstallment.payment_method;
+                    return paymentMethodLabel(payingInstallment.payment_method ?? "");
                   })()}
                 </p>
               </div>
 
               {payingInstallment.reference_number && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Número de referencia:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{pd("referenceNumberLabel")}</p>
                   <p className="text-sm font-mono">{payingInstallment.reference_number}</p>
                 </div>
               )}
 
               {payingInstallment.due_date && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Vencimiento:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{pd("dueDateLabel")}</p>
                   <p className="text-sm">{new Date(payingInstallment.due_date).toLocaleDateString("es-ES")}</p>
                 </div>
               )}
@@ -1414,14 +1417,14 @@ export function PurchaseDetailPage() {
               {payingInstallment.rate && payingInstallment.rate > 0 && (
                 <div className="rounded-lg border border-border bg-surface/50 px-4 py-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Monto en USD</span>
+                    <span className="text-sm text-muted-foreground">{pd("usdAmount")}</span>
                     <span className="text-lg font-semibold text-foreground">
                       ${payingInstallment.amount.toFixed(2)}
                     </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">
-                      Equivalente en Bs (tasa {payingInstallment.rate.toLocaleString("es-VE")})
+                      {pd("bsEquivalent", undefined, { rate: payingInstallment.rate.toLocaleString("es-VE") })}
                     </span>
                     <span className="font-medium text-foreground">
                       {formatBcv(payingInstallment.amount, payingInstallment.rate)}
@@ -1429,14 +1432,14 @@ export function PurchaseDetailPage() {
                   </div>
                   {payingInstallment.rate_date && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Tasa del {new Date(payingInstallment.rate_date).toLocaleDateString("es-ES")}
+                      {pd("rateDate", undefined, { date: new Date(payingInstallment.rate_date).toLocaleDateString("es-ES") })}
                     </p>
                   )}
                 </div>
               )}
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Fecha de pago:</p>
+                <p className="text-xs font-medium text-muted-foreground">{pd("paymentDateLabel")}</p>
                 <p className="text-sm">
                   {payingInstallment.paid_at
                     ? new Date(payingInstallment.paid_at).toLocaleDateString("es-ES", {
@@ -1446,16 +1449,16 @@ export function PurchaseDetailPage() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })
-                    : "Sin fecha"}
+                    : pd("noDate")}
                 </p>
               </div>
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Estado:</p>
+                <p className="text-xs font-medium text-muted-foreground">{pd("statusLabel")}</p>
                 <span
                   className={`ml-badge ${INSTALLMENT_STATUS_STYLES[payingInstallment.status] || INSTALLMENT_STATUS_STYLES.PENDING}`}
                 >
-                  {INSTALLMENT_STATUS_LABELS[payingInstallment.status] || payingInstallment.status}
+                  {installmentStatusLabel(payingInstallment.status)}
                 </span>
               </div>
             </div>
@@ -1470,7 +1473,7 @@ export function PurchaseDetailPage() {
                   className="w-full ml-btn ml-btn-primary"
                 >
                   {markPaidMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Verificar pago
+                  {pd("verifyPayment")}
                 </button>
                 <button
                   onClick={() => {
@@ -1480,7 +1483,7 @@ export function PurchaseDetailPage() {
                   className="w-full ml-btn ml-btn-outline border-red-500/30 text-red-400 hover:bg-red-500/10"
                 >
                   {markErroneousMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Rechazar cuota
+                  {pd("rejectInstallment")}
                 </button>
               </div>
             )}
@@ -1490,7 +1493,7 @@ export function PurchaseDetailPage() {
                 onClick={() => setPayingInstallment(null)}
                 className="w-full ml-btn ml-btn-outline"
               >
-                Cerrar
+                {t("common.close", "Close")}
               </button>
             </div>
           </div>
@@ -1511,38 +1514,37 @@ export function PurchaseDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-blue-400" />
-              Información de envío
+              {pd("shippingInfo")}
             </DialogTitle>
             <DialogDescription>
-              Ingresa el número de seguimiento y la agencia de envío para marcar la orden como
-              enviada.
+              {pd("shippingInfoDesc")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Número de seguimiento (tracking) <span className="text-red-400">*</span>
+                {pd("trackingNumber")} <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
                 value={shipTracking}
                 onChange={(e) => setShipTracking(e.target.value)}
                 className="ml-input"
-                placeholder="Ej: 123456789"
+                placeholder={t("purchaseDetail.trackingPlaceholder", "e.g. 123456789")}
                 autoFocus
               />
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Agencia de envío <span className="text-red-400">*</span>
+                {pd("shippingAgencyLabel")} <span className="text-red-400">*</span>
               </label>
               <select
                 value={shipNotes}
                 onChange={(e) => setShipNotes(e.target.value)}
                 className="ml-input"
               >
-                <option value="">Seleccionar...</option>
+                <option value="">{pd("selectPlaceholder")}</option>
                 <option value="MRW">MRW</option>
                 <option value="Zoom">Zoom</option>
                 <option value="Tealca">Tealca</option>
@@ -1561,7 +1563,7 @@ export function PurchaseDetailPage() {
               disabled={markShippedMutation.isPending}
               className="ml-btn ml-btn-outline"
             >
-              Cancelar
+              {t("common.cancel", "Cancel")}
             </button>
             <button
               onClick={() => {
@@ -1575,7 +1577,7 @@ export function PurchaseDetailPage() {
               className="ml-btn ml-btn-primary"
             >
               {markShippedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Marcar como enviado
+              {pd("markAsShipped")}
             </button>
           </DialogFooter>
         </DialogContent>

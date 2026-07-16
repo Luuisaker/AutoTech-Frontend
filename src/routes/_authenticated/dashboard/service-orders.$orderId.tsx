@@ -54,6 +54,7 @@ import {
   type PaymentDestination,
 } from "../../../lib/api";
 import { getBcvRate, getBcvRateInfo, getBcvRateForDate, formatBcv } from "../../../lib/bcv";
+import { useLocale } from "../../../lib/locale-context";
 
 export const Route = createFileRoute("/_authenticated/dashboard/service-orders/$orderId")({
   component: ServiceOrderDetailPage,
@@ -97,7 +98,26 @@ function ServiceOrderDetailPage() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const { roles } = useAuth();
+  const { t } = useLocale();
   const isClient = roles.includes("CLIENT");
+
+  const sod = (key: string, fallback?: string, params?: Record<string, string | number>) =>
+    t(`serviceOrderDetail.${key}`, fallback, params);
+  const statusLabel = (status: string) =>
+    t(`serviceOrders.status.${status}`, SERVICE_ORDER_LABELS[status] ?? status);
+  const installmentStatusLabel = (status: string) =>
+    t(`serviceOrderDetail.installmentStatus.${status}`, status);
+  const paymentMethodLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      BANK_TRANSFER: t("checkout.paymentTypes.bank_transfer", "Bank transfer"),
+      MOBILE_PAYMENT: t("checkout.paymentTypes.mobile_payment", "Mobile payment"),
+      CASH: t("checkout.paymentTypes.cash", "Cash"),
+      ZELLE: t("checkout.paymentTypes.zelle", "Zelle"),
+      ZINLI: t("checkout.paymentTypes.zinli", "Zinli"),
+      OTHER: t("common.other", "Other"),
+    };
+    return labels[type] ?? type;
+  };
 
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingValue, setRatingValue] = useState(5);
@@ -200,18 +220,18 @@ function ServiceOrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
       queryClient.invalidateQueries({ queryKey: ["credit-line"] });
-      toast.success("Servicio financiado exitosamente");
+      toast.success(sod("serviceFinanced"));
       setShowFinanceModal(false);
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al financiar";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorFinancing");
       toast.error(msg);
     },
   });
 
   const payInstallmentMutation = useMutation({
     mutationFn: async () => {
-      if (!activeInstallment) throw new Error("No hay cuota seleccionada");
+      if (!activeInstallment) throw new Error(sod("noInstallmentSelected"));
       const selectedMethod = workshopPaymentMethods.find((m) => m.id === installmentPayMethod);
       const paymentMethodType = (selectedMethod?.type ?? "").toUpperCase();
       const isCash = selectedMethod?.type === "cash";
@@ -227,7 +247,7 @@ function ServiceOrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
       queryClient.invalidateQueries({ queryKey: ["credit-line"] });
-      toast.success("Pago de cuota registrado, pendiente de verificación");
+      toast.success(sod("installmentPaid"));
       setShowInstallmentModal(false);
       setInstallmentPayMethod("");
       setInstallmentReference("");
@@ -235,7 +255,7 @@ function ServiceOrderDetailPage() {
       setInstallmentPayPending(false);
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al pagar cuota";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorPayingInstallment");
       toast.error(msg);
       setInstallmentPayPending(false);
     },
@@ -253,7 +273,7 @@ function ServiceOrderDetailPage() {
 
   const payMoraMutation = useMutation({
     mutationFn: async () => {
-      if (!activeMora) throw new Error("No hay mora seleccionada");
+      if (!activeMora) throw new Error(sod("noMoraSelected"));
       const dest = paymentDestinations?.find((d) => d.id === moraPayMethod);
       const paymentMethodType = dest?.method_type ?? "OTHER";
       const isForeign = dest?.method_type === "ZELLE" || dest?.method_type === "BINANCE";
@@ -269,7 +289,7 @@ function ServiceOrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["my-late-fees"] });
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["credit-line"] });
-      toast.success("Pago de mora registrado, pendiente de verificación");
+      toast.success(sod("moraPaid"));
       setShowMoraModal(false);
       setMoraPayMethod("");
       setMoraReference("");
@@ -277,7 +297,7 @@ function ServiceOrderDetailPage() {
       setMoraPayPending(false);
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al pagar mora";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorPayingMora");
       toast.error(msg);
       setMoraPayPending(false);
     },
@@ -298,10 +318,10 @@ function ServiceOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      toast.success("Presupuesto aceptado");
+      toast.success(sod("quoteAccepted"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al aceptar presupuesto";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorAcceptingQuote");
       toast.error(msg);
     },
   });
@@ -311,10 +331,10 @@ function ServiceOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      toast.success("Presupuesto rechazado");
+      toast.success(sod("quoteRejected"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al rechazar presupuesto";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorRejectingQuote");
       toast.error(msg);
     },
   });
@@ -324,10 +344,10 @@ function ServiceOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      toast.success("Costo de revisión aceptado");
+      toast.success(sod("revisionAccepted"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al aceptar revisión";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorAcceptingRevision");
       toast.error(msg);
     },
   });
@@ -337,10 +357,10 @@ function ServiceOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      toast.success("Revisión rechazada, orden cancelada");
+      toast.success(sod("revisionRejected"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al rechazar revisión";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorRejectingRevision");
       toast.error(msg);
     },
   });
@@ -349,10 +369,10 @@ function ServiceOrderDetailPage() {
     mutationFn: () => approveServiceExtra(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Cargo extra aprobado");
+      toast.success(sod("extraApproved"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al aprobar cargo extra";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorApprovingExtra");
       toast.error(msg);
     },
   });
@@ -361,10 +381,10 @@ function ServiceOrderDetailPage() {
     mutationFn: () => rejectServiceExtra(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Cargo extra rechazado");
+      toast.success(sod("extraRejected"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al rechazar cargo extra";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorRejectingExtra");
       toast.error(msg);
     },
   });
@@ -374,10 +394,10 @@ function ServiceOrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      toast.success("Orden de servicio cancelada");
+      toast.success(sod("orderCancelled"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al cancelar orden";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorCancellingOrder");
       toast.error(msg);
     },
   });
@@ -386,10 +406,10 @@ function ServiceOrderDetailPage() {
     mutationFn: () => markServiceReceived(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Recepción confirmada");
+      toast.success(sod("receptionConfirmed"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al confirmar recepción";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorConfirmingReception");
       toast.error(msg);
     },
   });
@@ -398,10 +418,10 @@ function ServiceOrderDetailPage() {
     mutationFn: () => markServiceDroppedOff(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Vehículo marcado como entregado en el taller");
+      toast.success(sod("vehicleMarkedDroppedOff"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al marcar entrega";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorMarkingDropoff");
       toast.error(msg);
     },
   });
@@ -410,10 +430,10 @@ function ServiceOrderDetailPage() {
     mutationFn: () => closeServiceAsClient(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Orden cerrada");
+      toast.success(sod("orderClosed"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al cerrar orden";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorClosingOrder");
       toast.error(msg);
     },
   });
@@ -423,13 +443,13 @@ function ServiceOrderDetailPage() {
       rateServiceOrderWorkshop(orderId, { rating, comment }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Taller calificado exitosamente");
+      toast.success(sod("workshopRated"));
       setShowRatingModal(false);
       setRatingValue(5);
       setRatingComment("");
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al registrar pago";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorRegisteringPayment");
       toast.error(msg);
     },
   });
@@ -448,10 +468,10 @@ function ServiceOrderDetailPage() {
     }) => payServiceOrder(orderId, { payment_method, reference_number, rate, rate_date }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["service-order", orderId] });
-      toast.success("Pago registrado, esperando confirmación del taller");
+      toast.success(sod("paymentRegistered"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Error al registrar pago";
+      const msg = err?.response?.data?.message ?? err?.message ?? sod("errorRegisteringPayment");
       toast.error(msg);
     },
   });
@@ -459,12 +479,12 @@ function ServiceOrderDetailPage() {
   async function handlePaySubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!payMethod) {
-      toast.error("Selecciona un método de pago");
+      toast.error(sod("selectPaymentMethod"));
       return;
     }
     const isCash = workshopPaymentMethods.find((m) => m.id === payMethod)?.type === "cash";
     if (!isCash && !payReference.trim()) {
-      toast.error("Ingresa el número de referencia");
+      toast.error(sod("enterReference"));
       return;
     }
     const selectedMethod = workshopPaymentMethods.find((m) => m.id === payMethod);
@@ -497,7 +517,7 @@ function ServiceOrderDetailPage() {
   const selectedPaymentInfoDisplay = selectedPaymentInfo ? (
     <div className="mt-2 pt-2 border-t border-border">
       <p className="mt-2 text-xs text-muted-foreground">
-        Seleccionado: {workshopPaymentMethods.find((m) => m.id === payMethod)?.type || payMethod}
+        {sod("selected")}: {workshopPaymentMethods.find((m) => m.id === payMethod)?.type || payMethod}
       </p>
     </div>
   ) : null;
@@ -510,23 +530,23 @@ function ServiceOrderDetailPage() {
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver
+          {sod("back")}
         </Link>
       )}
 
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">Detalle de orden de servicio</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{sod("title")}</h1>
           {order && (
             <span
               className={`ml-badge ${SERVICE_ORDER_STYLES[order.status] || SERVICE_ORDER_STYLES.PENDING}`}
             >
-              {SERVICE_ORDER_LABELS[order.status] ?? order.status}
+              {statusLabel(order.status)}
             </span>
           )}
           {order?.is_financed && (
             <span className="ml-badge border border-purple-500/30 bg-purple-500/10 text-purple-400">
-              Financiado
+              {sod("financed")}
             </span>
           )}
         </div>
@@ -541,7 +561,7 @@ function ServiceOrderDetailPage() {
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Total</p>
+              <p className="ml-stat-label">{sod("total")}</p>
               <p className="ml-stat-value text-lg">
                 $
                 {(
@@ -551,19 +571,19 @@ function ServiceOrderDetailPage() {
               </p>
             </div>
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Entrega</p>
+              <p className="ml-stat-label">{sod("delivery")}</p>
               <p className="ml-stat-value text-sm">
-                {order.delivery_method === "SHIPPING" ? "Envío" : "Recoger en taller"}
+                {order.delivery_method === "SHIPPING" ? sod("deliveryShipping") : sod("deliveryPickup")}
               </p>
             </div>
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Estado</p>
+              <p className="ml-stat-label">{sod("status")}</p>
               <p className="ml-stat-value text-sm">
-                {SERVICE_ORDER_LABELS[order.status] ?? order.status}
+                {statusLabel(order.status)}
               </p>
             </div>
             <div className="ml-stat-card">
-              <p className="ml-stat-label">Fecha</p>
+              <p className="ml-stat-label">{sod("date")}</p>
               <p className="ml-stat-value text-sm">
                 {new Date(order.created_at).toLocaleDateString("es-ES", {
                   year: "numeric",
@@ -578,24 +598,24 @@ function ServiceOrderDetailPage() {
             <div className="ml-card p-5">
               <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                 <Car className="h-4 w-4" />
-                Información del vehículo
+                {sod("vehicleInfo")}
               </h2>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Marca:</span>
+                  <span className="text-muted-foreground">{sod("brand")}</span>
                   <span className="font-medium">{order.vehicle_brand}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Modelo:</span>
+                  <span className="text-muted-foreground">{sod("model")}</span>
                   <span className="font-medium">{order.vehicle_model}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Placa:</span>
+                  <span className="text-muted-foreground">{sod("plate")}</span>
                   <span className="font-medium">{order.vehicle_license_plate}</span>
                 </div>
                 {order.notes && (
                   <div className="flex items-start gap-2 pt-1">
-                    <span className="text-muted-foreground">Nota:</span>
+                    <span className="text-muted-foreground">{sod("notes")}</span>
                     <span className="font-medium">{order.notes}</span>
                   </div>
                 )}
@@ -606,7 +626,7 @@ function ServiceOrderDetailPage() {
               <div className="ml-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <Store className="h-4 w-4" />
-                  Información del taller
+                  {sod("workshopInfo")}
                 </h2>
                 <p className="text-sm font-medium">{order.workshop_name}</p>
                 {order.workshop_rif && (
@@ -621,26 +641,26 @@ function ServiceOrderDetailPage() {
             <div className="ml-card p-5">
               <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                 <DollarSign className="h-4 w-4" />
-                Presupuesto
+                {sod("quote")}
               </h2>
               <div className="space-y-3 text-sm">
                 {order.status === "QUOTED" && (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Precio base</span>
+                      <span className="text-muted-foreground">{sod("basePrice")}</span>
                       <span className="font-medium">${order.base_price.toFixed(2)}</span>
                     </div>
                     {order.final_price != null && order.final_price !== order.base_price && (
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Precio final</span>
+                        <span className="text-muted-foreground">{sod("finalPrice")}</span>
                         <span className="font-mono font-bold">${order.final_price.toFixed(2)}</span>
                       </div>
                     )}
                     {order.extra_charge > 0 && order.extra_charge_status === "PENDING_APPROVAL" && (
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">
-                          Cargos extra
-                          <span className="ml-1.5 text-xs text-amber-400">(pendiente)</span>
+                          {sod("extraCharges")}
+                          <span className="ml-1.5 text-xs text-amber-400">{sod("pendingApproval")}</span>
                         </span>
                         <span className="font-medium text-amber-400">
                           + ${order.extra_charge.toFixed(2)}
@@ -649,7 +669,7 @@ function ServiceOrderDetailPage() {
                     )}
                     {order.revision != null && (
                       <p className="mt-2 text-xs text-amber-400">
-                        Si rechazas, pagas revisión:{" "}
+                        {sod("ifRejectPayRevision")}{" "}
                         <span className="font-mono font-bold">${order.revision.toFixed(2)}</span>
                       </p>
                     )}
@@ -659,7 +679,7 @@ function ServiceOrderDetailPage() {
                 {order.status === "ACCEPTED" && (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Presupuesto</span>
+                      <span className="text-muted-foreground">{sod("quote")}</span>
                       <span className="font-mono font-bold text-green-400">
                         ${(order.final_price ?? order.base_price ?? 0).toFixed(2)}
                       </span>
@@ -667,7 +687,7 @@ function ServiceOrderDetailPage() {
                     {order.extra_charge > 0 && order.extra_charge_status === "APPROVED" && (
                       <>
                         <div className="flex items-center justify-between text-amber-400">
-                          <span className="text-muted-foreground">Adicionales</span>
+                          <span className="text-muted-foreground">{sod("extraCharges")}</span>
                           <span className="font-medium">+ ${order.extra_charge.toFixed(2)}</span>
                         </div>
                         {order.extra_charge_note && (
@@ -678,7 +698,7 @@ function ServiceOrderDetailPage() {
                       </>
                     )}
                     <div className="flex items-center justify-between border-t border-border pt-3 font-semibold">
-                      <span>Total</span>
+                      <span>{sod("total")}</span>
                       <span className="font-mono">
                         $
                         {(
@@ -693,15 +713,15 @@ function ServiceOrderDetailPage() {
                 {order.status === "REJECTED" && order.revision != null && (
                   <>
                     <div className="flex items-center justify-between text-red-400">
-                      <span className="text-muted-foreground">Costo de revisión</span>
+                      <span className="text-muted-foreground">{sod("costOfRevision")}</span>
                       <span className="font-mono font-bold">${order.revision.toFixed(2)}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Presupuesto</span>
-                      <span className="font-medium text-red-400">Rechazado</span>
+                      <span className="text-muted-foreground">{sod("quote")}</span>
+                      <span className="font-medium text-red-400">{sod("rejected")}</span>
                     </div>
                     <div className="flex items-center justify-between border-t border-border pt-3 font-semibold">
-                      <span>Total a pagar</span>
+                      <span>{sod("totalToPay")}</span>
                       <span className="font-mono text-red-400">${order.revision.toFixed(2)}</span>
                     </div>
                   </>
@@ -710,7 +730,7 @@ function ServiceOrderDetailPage() {
                 {["IN_PROGRESS", "COMPLETED", "DELIVERED", "CLOSED"].includes(order.status) && (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Presupuesto</span>
+                      <span className="text-muted-foreground">{sod("quote")}</span>
                       <span className="font-mono font-bold">
                         ${(order.final_price ?? order.base_price ?? 0).toFixed(2)}
                       </span>
@@ -718,7 +738,7 @@ function ServiceOrderDetailPage() {
                     {order.extra_charge > 0 && order.extra_charge_status === "APPROVED" && (
                       <>
                         <div className="flex items-center justify-between text-amber-400">
-                          <span className="text-muted-foreground">Adicionales</span>
+                          <span className="text-muted-foreground">{sod("extraCharges")}</span>
                           <span className="font-medium">+ ${order.extra_charge.toFixed(2)}</span>
                         </div>
                         {order.extra_charge_note && (
@@ -729,7 +749,7 @@ function ServiceOrderDetailPage() {
                       </>
                     )}
                     <div className="flex items-center justify-between border-t border-border pt-3 font-semibold">
-                      <span>Total</span>
+                      <span>{sod("total")}</span>
                       <span className="font-mono">
                         $
                         {(
@@ -751,7 +771,7 @@ function ServiceOrderDetailPage() {
                 <div className="ml-card p-5">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                     <CreditCard className="h-4 w-4" />
-                    Pagos
+                    {sod("payments")}
                   </h2>
                   <div className="space-y-3">
                     {order.payments.map((payment: any, idx: number) => (
@@ -775,26 +795,20 @@ function ServiceOrderDetailPage() {
                           )}
 <div>
                           <p className="text-xs font-medium">
-                            {idx === 0 ? "Revisión" : `Adicional ${idx}`} —{" "}
+                            {idx === 0 ? sod("revision") : sod("additional", undefined, { n: idx })} —{" "}
                             {payment.status === "PAID" || payment.status === "VERIFIED"
-                              ? "Pagado"
+                              ? sod("paid")
                               : payment.status === "PENDING_VERIFICATION"
-                              ? "Pendiente de verificación"
-                              : "Rechazado"}
+                              ? sod("installmentStatus.PENDING_VERIFICATION", "Pendiente de verificación")
+                              : sod("rejected")}
                           </p>
                           <p className="text-[11px] text-muted-foreground">
-                            {payment.payment_method === "BANK_TRANSFER"
-                              ? "Transferencia bancaria"
-                              : payment.payment_method === "MOBILE_PAYMENT"
-                              ? "Pago móvil"
-                              : payment.payment_method === "CASH"
-                              ? "Efectivo"
-                              : payment.payment_method}
-                            {payment.reference_number && ` · Ref: ${payment.reference_number}`}
+                            {paymentMethodLabel(payment.payment_method)}
+                            {payment.reference_number && ` · ${sod("ref")} ${payment.reference_number}`}
                             {payment.paid_at &&
-                              ` · Pagado: ${new Date(payment.paid_at).toLocaleDateString("es-ES")}`}
+                              ` · ${sod("paid")} ${new Date(payment.paid_at).toLocaleDateString("es-ES")}`}
                             {payment.rate
-                              ? ` · Tasa: ${Number(payment.rate).toLocaleString("es-VE")} bs/${
+                              ? ` · ${sod("rate")} ${Number(payment.rate).toLocaleString("es-VE")} bs/${
                                   payment.rate_date
                                     ? ` (${new Date(payment.rate_date).toLocaleDateString("es-ES")})`
                                     : ""
@@ -802,7 +816,7 @@ function ServiceOrderDetailPage() {
                               : ""}
                             {idx === 1 && order.extra_charge_note && (
                               <span className="ml-2 text-xs text-amber-400">
-                                Nota: {order.extra_charge_note}
+                                {sod("note")} {order.extra_charge_note}
                               </span>
                             )}
                           </p>
@@ -823,7 +837,7 @@ function ServiceOrderDetailPage() {
               <div className="ml-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <CreditCard className="h-4 w-4" />
-                  Cuotas de financiamiento
+                  {sod("financeInstallments")}
                 </h2>
                 <div className="space-y-3">
                   {order.installments.map((inst, idx) => {
@@ -859,26 +873,26 @@ function ServiceOrderDetailPage() {
                           )}
                           <div>
                             <p className="text-xs font-medium">
-                              Cuota {idx + 1} —{" "}
+                              {sod("installment", undefined, { n: idx + 1 })} —{" "}
                               {isPaid
-                                ? "Pagada"
+                                ? sod("installmentStatus.PAID", "Pagada")
                                 : isPendingVerif
-                                  ? "Pendiente de verificación"
+                                  ? sod("installmentStatus.PENDING_VERIFICATION", "Pendiente de verificación")
                                   : hasOpenMora
-                                    ? "Vencida (con mora)"
-                                    : "Pendiente"}
+                                    ? sod("installmentStatus.OVERDUE", "Vencida (con mora)")
+                                    : sod("installmentStatus.PENDING", "Pendiente")}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                              Vence: {new Date(inst.due_date).toLocaleDateString("es-ES")}
+                              {sod("dueDate")} {new Date(inst.due_date).toLocaleDateString("es-ES")}
                               {inst.payment_method && inst.payment_method !== "OTHER" &&
-                                ` · ${inst.payment_method === "BANK_TRANSFER" ? "Transferencia" : inst.payment_method === "MOBILE_PAYMENT" ? "Pago móvil" : inst.payment_method === "CASH" ? "Efectivo" : inst.payment_method}`}
-                              {inst.reference_number && ` · Ref: ${inst.reference_number}`}
-                              {inst.paid_at && ` · Pagado: ${new Date(inst.paid_at).toLocaleDateString("es-ES")}`}
+                                ` · ${paymentMethodLabel(inst.payment_method)}`}
+                              {inst.reference_number && ` · ${sod("ref")} ${inst.reference_number}`}
+                              {inst.paid_at && ` · ${sod("paid")} ${new Date(inst.paid_at).toLocaleDateString("es-ES")}`}
                             </p>
                             {hasOpenMora && mora && (
                               <p className="mt-0.5 text-[11px] font-medium text-red-400">
                                 Mora: ${mora.amount.toFixed(2)}
-                                {mora.status === "PENDING_VERIFICATION" && " (en verificación)"}
+                                {mora.status === "PENDING_VERIFICATION" && ` (${sod("inVerification")})`}
                               </p>
                             )}
                           </div>
@@ -905,7 +919,7 @@ function ServiceOrderDetailPage() {
                                 setShowInstallmentModal(true);
                               }}
                             >
-                              Pagar
+                              {sod("pay")}
                             </button>
                           )}
                           {canPayMora && (
@@ -920,11 +934,11 @@ function ServiceOrderDetailPage() {
                                 setShowMoraModal(true);
                               }}
                             >
-                              Pagar mora
+                              {sod("payMora")}
                             </button>
                           )}
                           {hasOpenMora && mora?.status === "PENDING_VERIFICATION" && (
-                            <span className="text-[11px] text-amber-400">Mora en verificación</span>
+                            <span className="text-[11px] text-amber-400">{sod("moraInVerification")}</span>
                           )}
                         </div>
                       </div>
@@ -938,15 +952,15 @@ function ServiceOrderDetailPage() {
               <div className="ml-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <Truck className="h-4 w-4" />
-                  Información de entrega
+                  {sod("deliveryInfo")}
                 </h2>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Método:</span>
+                    <span className="text-muted-foreground">{sod("method")}</span>
                     <span className="font-medium">
                       {order.delivery_method === "SHIPPING"
-                        ? "Envío nacional"
-                        : "Retirar en el taller"}
+                        ? sod("nationalShipping")
+                        : sod("pickupAtWorkshop")}
                     </span>
                   </div>
                   {order.delivery_method === "SHIPPING" && (
@@ -954,21 +968,21 @@ function ServiceOrderDetailPage() {
                       {order.tracking_number && (
                         <div className="flex items-start gap-2">
                           <Package className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Seguimiento:</span>
+                          <span className="text-muted-foreground">{sod("trackingLabel")}</span>
                           <span className="font-medium">{order.tracking_number}</span>
                         </div>
                       )}
                       {order.shipping_notes && (
                         <div className="flex items-start gap-2">
                           <Package className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Agencia de envío:</span>
+                          <span className="text-muted-foreground">{sod("shippingAgency")}</span>
                           <span className="font-medium">{order.shipping_notes}</span>
                         </div>
                       )}
                       {order.shipped_at && (
                         <div className="flex items-start gap-2">
                           <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Fecha de envío:</span>
+                          <span className="text-muted-foreground">{sod("shippingDate")}</span>
                           <span className="font-medium">
                             {new Date(order.shipped_at).toLocaleDateString("es-ES", {
                               day: "numeric",
@@ -993,10 +1007,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <Clock className="mt-0.5 h-5 w-5 text-amber-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-amber-400">Orden pendiente</p>
+                    <p className="font-medium text-amber-400">{sod("pendingOrder")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Cuando entregues el vehículo en el taller, márcalo como entregado para
-                      que el taller confirme la recepción.
+                      {sod("pendingOrderDesc")}
                     </p>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button
@@ -1008,7 +1021,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <Truck className="h-4 w-4" />
-                        Marcar como entregado en el taller
+                        {sod("markDroppedOff")}
                       </button>
                       <button
                         onClick={() => cancelOrderMutation.mutate()}
@@ -1019,7 +1032,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <XCircle className="h-4 w-4" />
-                        Cancelar servicio
+                        {sod("cancelService")}
                       </button>
                     </div>
                   </div>
@@ -1032,9 +1045,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <Truck className="mt-0.5 h-5 w-5 text-amber-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-amber-400">Vehículo entregado en el taller</p>
+                    <p className="font-medium text-amber-400">{sod("vehicleDroppedOff")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Esperando que el taller confirme la recepción del vehículo.
+                      {sod("vehicleDroppedOffDesc")}
                     </p>
                     <div className="mt-4">
                       <button
@@ -1046,7 +1059,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <XCircle className="h-4 w-4" />
-                        Cancelar servicio
+                        {sod("cancelService")}
                       </button>
                     </div>
                   </div>
@@ -1059,9 +1072,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <Truck className="mt-0.5 h-5 w-5 text-blue-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-blue-400">Vehículo en taller</p>
+                    <p className="font-medium text-blue-400">{sod("vehicleAtWorkshop")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El vehículo está en el taller, esperando presupuesto.
+                      {sod("vehicleAtWorkshopDesc")}
                     </p>
                   </div>
                 </div>
@@ -1073,10 +1086,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <Search className="mt-0.5 h-5 w-5 text-purple-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-purple-400">Revisión enviada</p>
+                    <p className="font-medium text-purple-400">{sod("revisionSent")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El taller ha enviado un costo de revisión. Si rechazas el presupuesto después,
-                      deberás pagar este costo.
+                      {sod("revisionSentDesc")}
                     </p>
                     {order.revision != null && (
                       <p className="mt-3 font-mono text-2xl font-bold">
@@ -1093,7 +1105,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <CheckCircle2 className="h-4 w-4" />
-                        Aceptar revisión
+                        {sod("acceptRevision")}
                       </button>
                       <button
                         onClick={() => rejectRevisionMutation.mutate()}
@@ -1104,7 +1116,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <XCircle className="h-4 w-4" />
-                        Rechazar y cancelar
+                        {sod("rejectAndCancel")}
                       </button>
                     </div>
                   </div>
@@ -1117,10 +1129,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <DollarSign className="mt-0.5 h-5 w-5 text-blue-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-blue-400">Presupuesto recibido</p>
+                    <p className="font-medium text-blue-400">{sod("quoteReceived")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El taller ha enviado un presupuesto. Revísalo y decide si lo aceptas o
-                      rechazas.
+                      {sod("quoteReceivedDesc")}
                     </p>
                     {order.final_price != null && (
                       <p className="mt-3 font-mono text-2xl font-bold">
@@ -1129,7 +1140,7 @@ function ServiceOrderDetailPage() {
                     )}
                     {order.revision != null && (
                       <p className="mt-2 text-sm text-amber-400">
-                        Si rechazas, pagas revisión:{" "}
+                        {sod("ifRejectPayRevision")}{" "}
                         <span className="font-mono font-bold">${order.revision.toFixed(2)}</span>
                       </p>
                     )}
@@ -1143,7 +1154,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <CheckCircle2 className="h-4 w-4" />
-                        Aceptar presupuesto
+                        {sod("acceptQuote")}
                       </button>
                       <button
                         onClick={() => {
@@ -1154,7 +1165,7 @@ function ServiceOrderDetailPage() {
                         className="ml-btn border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
                       >
                         <Wallet className="h-4 w-4" />
-                        Financiar
+                        {sod("finance")}
                       </button>
                       <button
                         onClick={() => rejectQuoteMutation.mutate()}
@@ -1165,7 +1176,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <XCircle className="h-4 w-4" />
-                        Rechazar presupuesto
+                        {sod("rejectQuote")}
                       </button>
                     </div>
                   </div>
@@ -1179,7 +1190,7 @@ function ServiceOrderDetailPage() {
                   <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-400" />
                   <div className="flex-1">
                     <p className="font-medium text-amber-400">
-                      Cargo extra pendiente de aprobación
+                      {sod("extraChargePending")}
                     </p>
                     {order.extra_charge_note && (
                       <p className="mt-1 text-sm text-muted-foreground">
@@ -1199,7 +1210,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <CheckCircle2 className="h-4 w-4" />
-                        Aprobar cargo extra
+                        {sod("approveExtra")}
                       </button>
                       <button
                         onClick={() => rejectExtraMutation.mutate()}
@@ -1210,7 +1221,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <XCircle className="h-4 w-4" />
-                        Rechazar cargo extra
+                        {sod("rejectExtra")}
                       </button>
                     </div>
                   </div>
@@ -1223,14 +1234,14 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-green-400">Presupuesto aceptado</p>
+                    <p className="font-medium text-green-400">{sod("quoteAcceptedStatus")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Presupuesto aceptado.{" "}
+                      {sod("quoteAcceptedStatus")}.{" "}
                       {order.is_paid
-                        ? "Pago confirmado. Esperando que el taller inicie el servicio."
+                        ? sod("quoteAcceptedPaid")
                         : order.payment_status === "PENDING_VERIFICATION"
-                          ? "Pago registrado. Esperando confirmación del taller."
-                          : "Paga el presupuesto para que el taller inicie el servicio."}
+                          ? sod("quoteAcceptedPendingVerif")
+                          : sod("quoteAcceptedUnpaid")}
                     </p>
                     {!order.is_paid && order.final_price != null && (
                       <p className="mt-2 font-mono text-xl font-bold text-green-400">
@@ -1252,7 +1263,7 @@ function ServiceOrderDetailPage() {
                         className="mt-4 ml-btn ml-btn-primary"
                       >
                         <CreditCard className="h-4 w-4 mr-2" />
-                        Pagar $
+                        {sod("payAmount")} $
                         {(() => {
                           const totalOwed =
                             (order.final_price ?? 0) +
@@ -1267,7 +1278,7 @@ function ServiceOrderDetailPage() {
                     {order.payment_status === "PENDING_VERIFICATION" && (
                       <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
                         <Clock className="h-4 w-4" />
-                        Pago pendiente de verificación
+                        {sod("paymentPendingVerif")}
                       </div>
                     )}
                   </div>
@@ -1281,23 +1292,23 @@ function ServiceOrderDetailPage() {
                   <Wrench className="mt-0.5 h-5 w-5 text-blue-400" />
                   <div className="flex-1">
                     <p className="font-medium text-blue-400">
-                      {order.status === "IN_PROGRESS" ? "Servicio en progreso" : "Servicio completado"}
+                      {order.status === "IN_PROGRESS" ? sod("serviceInProgress") : sod("serviceCompleted")}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {order.status === "IN_PROGRESS"
-                        ? "El servicio está en progreso. El taller notificará cuando esté completado."
-                        : "El servicio ha sido completado por el taller."}
+                        ? sod("inProgressDesc")
+                        : sod("completedDesc")}
                     </p>
                     {order.extra_charge_status === "APPROVED" &&
                     !order.is_paid &&
                     order.payment_status !== "PENDING_VERIFICATION" && (
                       <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
                         <p className="text-sm font-medium text-amber-400">
-                          Pago adicional aprobado
+                          {sod("additionalPaymentApproved")}
                         </p>
                         {order.extra_charge_note && (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Nota del taller: {order.extra_charge_note}
+                            {sod("workshopNote")} {order.extra_charge_note}
                           </p>
                         )}
                         <p className="mt-2 font-mono text-lg font-bold text-amber-400">
@@ -1308,14 +1319,14 @@ function ServiceOrderDetailPage() {
                           className="mt-3 ml-btn border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
                         >
                           <CreditCard className="h-4 w-4 mr-2" />
-                          Pagar adicional
+                          {sod("payAdditionalBtn")}
                         </button>
                       </div>
                     )}
                     {order.payment_status === "PENDING_VERIFICATION" && (
                       <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
                         <Clock className="h-4 w-4" />
-                        Pago pendiente de verificación
+                        {sod("paymentPendingVerif")}
                       </div>
                     )}
                   </div>
@@ -1328,9 +1339,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-emerald-400">Servicio completado</p>
+                    <p className="font-medium text-emerald-400">{sod("serviceCompleted")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Esperando que el taller marque la orden como enviada.
+                      {sod("completedShippingDesc")}
                     </p>
                   </div>
                 </div>
@@ -1342,9 +1353,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-emerald-400">Servicio completado</p>
+                    <p className="font-medium text-emerald-400">{sod("serviceCompleted")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El servicio ha sido completado. Confirma la recepción del vehículo.
+                      {sod("completedPickupDesc")}
                     </p>
                     <div className="mt-4">
                       <button
@@ -1356,7 +1367,7 @@ function ServiceOrderDetailPage() {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         <Truck className="h-4 w-4" />
-                        Marcar como retirado
+                        {sod("markPickedUp")}
                       </button>
                     </div>
                   </div>
@@ -1369,24 +1380,24 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <Package className="mt-0.5 h-5 w-5 text-blue-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-blue-400">Producto enviado</p>
+                    <p className="font-medium text-blue-400">{sod("shipped")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El taller ha marcado la orden como enviada.
+                      {sod("shippedDesc")}
                     </p>
                     {order.tracking_number && (
                       <p className="mt-2 text-sm">
-                        <span className="text-muted-foreground">Número de seguimiento:</span>{" "}
+                        <span className="text-muted-foreground">{sod("trackingNumber")}</span>{" "}
                         <span className="font-mono font-medium">{order.tracking_number}</span>
                       </p>
                     )}
                     {order.shipping_notes && (
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Agencia: {order.shipping_notes}
+                        {sod("agency")} {order.shipping_notes}
                       </p>
                     )}
                     {order.shipped_at && (
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Fecha de envío:{" "}
+                        {sod("shippingDate")}{" "}
                         {new Date(order.shipped_at).toLocaleDateString("es-ES", {
                           year: "numeric",
                           month: "long",
@@ -1405,7 +1416,7 @@ function ServiceOrderDetailPage() {
                         {markReceivedMutation.isPending && (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
-                        Confirmar recepción
+                        {sod("confirmReception")}
                       </button>
                     </div>
                   </div>
@@ -1418,9 +1429,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <Truck className="mt-0.5 h-5 w-5 text-teal-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-teal-400">Vehículo entregado</p>
+                    <p className="font-medium text-teal-400">{sod("vehicleDelivered")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Vehículo entregado. Confirma el cierre de la orden.
+                      {sod("vehicleDeliveredDesc")}
                     </p>
                     <div className="mt-4">
                       <button
@@ -1431,13 +1442,13 @@ function ServiceOrderDetailPage() {
                         {closeClientMutation.isPending && (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
-                        {order.closed_by_client ? "Cierre confirmado" : "Cerrar orden"}
+                        {order.closed_by_client ? sod("closeConfirmed") : sod("closeOrder")}
                       </button>
                     </div>
                     {order.closed_by_client && (
                       <div className="mt-3 flex gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-400" /> Cliente cerró
+                          <CheckCircle2 className="h-3 w-3 text-emerald-400" /> {sod("clientClosed")}
                         </span>
                       </div>
                     )}
@@ -1451,9 +1462,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 text-sky-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-sky-400">Orden cerrada</p>
+                    <p className="font-medium text-sky-400">{sod("orderClosedTitle")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Esta orden de servicio ha sido cerrada.
+                      {sod("orderClosedDesc")}
                     </p>
                     {!order.ratings?.client_rated && (
                       <button
@@ -1461,13 +1472,13 @@ function ServiceOrderDetailPage() {
                         className="ml-btn ml-btn-primary mt-4"
                       >
                         <Star className="h-4 w-4" />
-                        Calificar taller
+                        {sod("rateWorkshop")}
                       </button>
                     )}
                     {order.ratings?.client_rated && (
                       <div className="mt-4 rounded-lg border border-border bg-surface p-4">
                         <p className="text-xs font-medium text-muted-foreground mb-1">
-                          Tu calificación al taller:
+                          {sod("yourRating")}
                         </p>
                         <div className="flex items-center gap-2">
                           <div className="flex gap-0.5">
@@ -1498,7 +1509,7 @@ function ServiceOrderDetailPage() {
                     {order.ratings?.workshop_rated && (
                       <div className="mt-3 rounded-lg border border-border bg-surface p-4">
                         <p className="text-xs font-medium text-muted-foreground mb-1">
-                          Calificación del taller:
+                          {sod("workshopRating")}
                         </p>
                         <div className="flex items-center gap-2">
                           <div className="flex gap-0.5">
@@ -1531,9 +1542,9 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <XCircle className="mt-0.5 h-5 w-5 text-red-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-red-400">Orden cancelada</p>
+                    <p className="font-medium text-red-400">{sod("orderCancelledTitle")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Esta orden ha sido cancelada.
+                      {sod("orderCancelledDesc")}
                     </p>
                   </div>
                 </div>
@@ -1545,18 +1556,18 @@ function ServiceOrderDetailPage() {
                 <div className="flex items-start gap-3">
                   <XCircle className="mt-0.5 h-5 w-5 text-red-400" />
                   <div className="flex-1">
-                    <p className="font-medium text-red-400">Presupuesto rechazado</p>
+                    <p className="font-medium text-red-400">{sod("quoteRejectedTitle")}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      El presupuesto fue rechazado.{" "}
+                      {sod("quoteRejectedDesc")}{" "}
                       {order.is_paid
-                        ? "Pago de revisión confirmado. Orden cerrada."
+                        ? sod("revisionPaidClosed")
                         : order.payment_status === "PENDING_VERIFICATION"
-                          ? "Pago de revisión registrado. Esperando confirmación del taller."
-                          : "Debes pagar la revisión para cerrar la orden."}
+                          ? sod("revisionPendingVerif")
+                          : sod("mustPayRevision")}
                     </p>
                     {!order.is_paid && order.revision != null && (
                       <p className="mt-2 font-mono text-xl font-bold text-red-400">
-                        Revisión: $
+                        {sod("revisionLabel")} $
                         {(() => {
                           const paidSum = (order.payments ?? [])
                             .filter((p) => p.status === "PAID")
@@ -1571,7 +1582,7 @@ function ServiceOrderDetailPage() {
                         className="mt-4 ml-btn border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
                       >
                         <CreditCard className="h-4 w-4 mr-2" />
-                        Pagar revisión $
+                        {sod("payRevisionBtn")} $
                         {(() => {
                           const paidSum = (order.payments ?? [])
                             .filter((p) => p.status === "PAID")
@@ -1583,7 +1594,7 @@ function ServiceOrderDetailPage() {
                     {order.payment_status === "PENDING_VERIFICATION" && (
                       <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
                         <Clock className="h-4 w-4" />
-                        Pago pendiente de verificación
+                        {sod("paymentPendingVerif")}
                       </div>
                     )}
                   </div>
@@ -1595,9 +1606,9 @@ function ServiceOrderDetailPage() {
       ) : (
         <div className="ml-empty-state py-16">
           <Wrench className="ml-empty-state-icon" />
-          <p className="ml-empty-state-title">No se encontró la orden de servicio</p>
+          <p className="ml-empty-state-title">{sod("orderNotFound")}</p>
           <Link to="/dashboard/service-orders" className="ml-btn ml-btn-primary">
-            Volver a órdenes
+            {sod("backToOrders")}
           </Link>
         </div>
       )}
@@ -1605,7 +1616,7 @@ function ServiceOrderDetailPage() {
       {showPayModal && order && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
-            <h2 className="text-lg font-semibold tracking-tight">Registrar pago</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{sod("registerPayment")}</h2>
             <div className="mt-1">
               {(() => {
                 const totalOwed =
@@ -1619,10 +1630,10 @@ function ServiceOrderDetailPage() {
                 const remaining = Math.max(0, totalOwed - paidSum);
                 const label =
                   order.status === "REJECTED"
-                    ? "Pagar revisión"
+                    ? sod("payRevisionLabel")
                     : paidSum > 0
-                      ? "Pago pendiente"
-                      : "Pagar presupuesto";
+                      ? sod("pendingPaymentLabel")
+                      : sod("payQuoteLabel");
                 const hasBcv = bcvRate && bcvRate > 0 && !(() => {
                   const m = workshopPaymentMethods.find((m) => m.id === payMethod);
                   return m?.type === "zelle" || m?.type === "zinli";
@@ -1648,7 +1659,7 @@ function ServiceOrderDetailPage() {
                     </div>
                     {bcvInfo && bcvInfo.usd > 0 && hasBcv && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Tasa BCV: {bcvInfo.usd.toLocaleString("es-VE")} bs/${
+                        {sod("bcvRate")} {bcvInfo.usd.toLocaleString("es-VE")} bs/${
                           bcvInfo.date ? ` · ${bcvInfo.date}` : ""
                         }
                       </p>
@@ -1661,15 +1672,15 @@ function ServiceOrderDetailPage() {
             <form onSubmit={handlePaySubmit} className="mt-6 space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Método de pago <span className="text-destructive">*</span>
+                  {sod("paymentMethod")} <span className="text-destructive">*</span>
                 </label>
                 {paymentMethodsLoading ? (
                   <div className="ml-input w-full py-2 text-center text-sm text-muted-foreground">
-                    Cargando métodos de pago...
+                    {sod("loadingPaymentMethods")}
                   </div>
                 ) : workshopPaymentMethods.length === 0 ? (
                   <div className="ml-input w-full py-2 text-center text-sm text-red-400">
-                    Este taller no tiene métodos de pago configurados
+                    {sod("noPaymentMethods")}
                   </div>
                 ) : (
                   <div className="mt-2 space-y-2">
@@ -1677,16 +1688,16 @@ function ServiceOrderDetailPage() {
                       const isSelected = payMethod === method.id;
                       const typeLabel =
                         method.type === "bank_transfer"
-                          ? "Transferencia bancaria"
+                          ? sod("bankTransfer")
                           : method.type === "mobile_payment"
-                            ? "Pago móvil"
+                            ? sod("mobilePayment")
                             : method.type === "cash"
-                              ? "Efectivo"
+                              ? sod("cash")
                               : method.type === "zelle"
                                 ? "Zelle"
                                 : method.type === "zinli"
                                   ? "Zinli"
-                                  : "Otro";
+                                  : sod("other");
                       const typeColor =
                         method.type === "bank_transfer"
                           ? "text-blue-400"
@@ -1757,7 +1768,7 @@ function ServiceOrderDetailPage() {
                             </div>
                             {isSelected && (
                               <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                                Toca para deseleccionar
+                                {sod("tapToDeselect")}
                               </span>
                             )}
                           </button>
@@ -1768,25 +1779,25 @@ function ServiceOrderDetailPage() {
                                 <div className="space-y-1">
                                   {method.bank_name && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Banco:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("bank")}</span>{" "}
                                       {method.bank_name}
                                     </p>
                                   )}
                                   {method.account_number && (
                                     <p className="font-mono">
-                                      <span className="text-muted-foreground/70">Cuenta:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("account")}</span>{" "}
                                       {method.account_number}
                                     </p>
                                   )}
                                   {method.account_holder && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Titular:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("holder")}</span>{" "}
                                       {method.account_holder}
                                     </p>
                                   )}
                                   {method.holder_ci && (
                                     <p>
-                                      <span className="text-muted-foreground/70">CI:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("ci")}</span>{" "}
                                       {method.holder_ci}
                                     </p>
                                   )}
@@ -1796,19 +1807,19 @@ function ServiceOrderDetailPage() {
                                 <div className="space-y-1">
                                   {method.phone_number && (
                                     <p className="font-mono">
-                                      <span className="text-muted-foreground/70">Teléfono:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("phone")}</span>{" "}
                                       {method.phone_number}
                                     </p>
                                   )}
                                   {method.holder_ci && (
                                     <p>
-                                      <span className="text-muted-foreground/70">CI:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("ci")}</span>{" "}
                                       {method.holder_ci}
                                     </p>
                                   )}
                                   {method.bank_name && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Banco:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("bank")}</span>{" "}
                                       {method.bank_name}
                                     </p>
                                   )}
@@ -1816,7 +1827,7 @@ function ServiceOrderDetailPage() {
                               )}
                               {method.type === "cash" && (
                                 <p>
-                                  Paga en efectivo directamente en el taller al recoger el vehículo.
+                                  {sod("cashDesc")}
                                 </p>
                               )}
                               {(method.type === "zelle" || method.type === "zinli") && (
@@ -1829,11 +1840,11 @@ function ServiceOrderDetailPage() {
                                   )}
                                   {method.account_holder && (
                                     <p>
-                                      <span className="text-muted-foreground/70">Titular:</span>{" "}
+                                      <span className="text-muted-foreground/70">{sod("holder")}</span>{" "}
                                       {method.account_holder}
                                     </p>
                                   )}
-                                  <p className="text-primary/70">Pago en USD — sin equivalente en Bs</p>
+                                  <p className="text-primary/70">{sod("usdPayment")}</p>
                                 </div>
                               )}
                             </div>
@@ -1854,24 +1865,24 @@ function ServiceOrderDetailPage() {
                       {!isCash && (
                         <>
                           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                            Número de referencia
+                            {sod("referenceNumber")}
                           </label>
                           <input
                             type="text"
                             value={payReference}
                             onChange={(e) => setPayReference(e.target.value)}
-                            placeholder="Ej. 0123456789"
+                            placeholder={sod("referencePlaceholder")}
                             className="ml-input w-full"
                             required
                           />
                           <p className="mt-1.5 text-xs text-muted-foreground">
-                            Ingresa el número de transferencia o pago móvil realizado.
+                            {sod("referenceHelp")}
                           </p>
                         </>
                       )}
                       {isCash && (
                         <p className="text-xs text-muted-foreground">
-                          Paga en efectivo directamente en el taller al recoger el vehículo.
+                          {sod("cashDesc")}
                         </p>
                       )}
                     </div>
@@ -1884,7 +1895,7 @@ function ServiceOrderDetailPage() {
                   onClick={() => setShowPayModal(false)}
                   className="ml-btn ml-btn-outline"
                 >
-                  Cancelar
+                  {sod("cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1892,7 +1903,7 @@ function ServiceOrderDetailPage() {
                   className="ml-btn ml-btn-primary"
                 >
                   {payPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Registrar pago
+                  {sod("registerPayment")}
                 </button>
               </div>
             </form>
@@ -1903,9 +1914,9 @@ function ServiceOrderDetailPage() {
       {showRatingModal && order && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
-            <h2 className="text-lg font-semibold tracking-tight">Calificar taller</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{sod("rateWorkshopTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Califica tu experiencia con {order.workshop_name ?? "este taller"}.
+              {sod("rateWorkshopDesc", undefined, { workshop: order.workshop_name ?? "" })}
             </p>
 
             <div className="mt-6 flex items-center justify-center gap-1">
@@ -1927,7 +1938,7 @@ function ServiceOrderDetailPage() {
             <textarea
               value={ratingComment}
               onChange={(e) => setRatingComment(e.target.value)}
-              placeholder="Comentario (opcional)"
+              placeholder={sod("commentOptional")}
               rows={3}
               className="ml-input mt-4 w-full resize-none"
             />
@@ -1938,7 +1949,7 @@ function ServiceOrderDetailPage() {
                 onClick={() => setShowRatingModal(false)}
                 className="ml-btn ml-btn-outline"
               >
-                Cancelar
+                {sod("cancel")}
               </button>
               <button
                 type="button"
@@ -1947,7 +1958,7 @@ function ServiceOrderDetailPage() {
                 className="ml-btn ml-btn-primary"
               >
                 {rateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Enviar calificación
+                {sod("submitRating")}
               </button>
             </div>
           </div>
@@ -1958,7 +1969,7 @@ function ServiceOrderDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Financiar servicio</h2>
+              <h2 className="text-lg font-semibold">{sod("financeService")}</h2>
               <button onClick={() => setShowFinanceModal(false)} className="text-muted-foreground hover:text-foreground">
                 <XCircle className="h-5 w-5" />
               </button>
@@ -1971,8 +1982,8 @@ function ServiceOrderDetailPage() {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
                       {isCreditLineLoading
-                        ? "Cargando información de crédito…"
-                        : "No se pudo cargar la información de crédito"}
+                        ? sod("loadingCredit")
+                        : sod("errorLoadingCredit")}
                     </p>
                   </div>
                 );
@@ -1993,7 +2004,7 @@ function ServiceOrderDetailPage() {
               return (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">Pago inicial ({financeDownPct}%)</label>
+                    <label className="text-sm font-medium">{sod("downPaymentLabel")} ({financeDownPct}%)</label>
                     <input
                       type="range"
                       min={minPct}
@@ -2004,12 +2015,12 @@ function ServiceOrderDetailPage() {
                       className="mt-2 w-full accent-primary"
                     />
                     <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                      <span>Pago inicial: <span className="font-semibold text-foreground">${downPayment.toFixed(2)}</span></span>
-                      <span>Financiado: <span className="font-semibold text-foreground">${financed.toFixed(2)}</span></span>
+                      <span>{sod("downPaymentLabel")}: <span className="font-semibold text-foreground">${downPayment.toFixed(2)}</span></span>
+                      <span>{sod("financedLabel")}: <span className="font-semibold text-foreground">${financed.toFixed(2)}</span></span>
                     </div>
                     {minPct > 0 && (
                       <p className="mt-1 text-[10px] text-muted-foreground">
-                        Mínimo {minPct}% de pago inicial para tu nivel de crédito (nivel {creditLine?.level})
+                        {sod("minDownPayment", undefined, { pct: minPct, level: creditLine?.level ?? 1 })}
                       </p>
                     )}
                   </div>
@@ -2022,27 +2033,27 @@ function ServiceOrderDetailPage() {
                     }`}>
                       <div className="flex items-center gap-1.5 font-medium">
                         <Wallet className="h-3.5 w-3.5" />
-                        Crédito de servicio disponible: ${serviceAvailable.toFixed(2)}
+                        {sod("serviceCreditAvailable", undefined, { amount: serviceAvailable.toFixed(2) })}
                       </div>
                       {exceedsCredit ? (
-                        <p className="mt-1">El monto financiado excede tu crédito. Aumenta el pago inicial.</p>
+                        <p className="mt-1">{sod("financedExceedsCredit")}</p>
                       ) : (
-                        <p className="mt-1">Te quedarán ${(serviceAvailable - financed).toFixed(2)} disponibles.</p>
+                        <p className="mt-1">{sod("remainingCredit", undefined, { amount: (serviceAvailable - financed).toFixed(2) })}</p>
                       )}
                     </div>
                   )}
 
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                      Método de pago <span className="text-destructive">*</span>
+                      {sod("paymentMethod")} <span className="text-destructive">*</span>
                     </label>
                     {paymentMethodsLoading ? (
                       <div className="ml-input w-full py-2 text-center text-sm text-muted-foreground">
-                        Cargando métodos de pago...
+                        {sod("loadingPaymentMethods")}
                       </div>
                     ) : workshopPaymentMethods.length === 0 ? (
                       <div className="ml-input w-full py-2 text-center text-sm text-red-400">
-                        Este taller no tiene métodos de pago configurados
+                        {sod("noPaymentMethods")}
                       </div>
                     ) : (
                       <div className="mt-2 space-y-2">
@@ -2050,16 +2061,16 @@ function ServiceOrderDetailPage() {
                           const isSelected = financePaymentMethod === method.id;
                           const typeLabel =
                             method.type === "bank_transfer"
-                              ? "Transferencia bancaria"
+                              ? sod("bankTransfer")
                               : method.type === "mobile_payment"
-                                ? "Pago móvil"
+                                ? sod("mobilePayment")
                                 : method.type === "cash"
-                                  ? "Efectivo"
+                                  ? sod("cash")
                                   : method.type === "zelle"
                                     ? "Zelle"
                                     : method.type === "zinli"
                                       ? "Zinli"
-                                      : "Otro";
+                                      : sod("other");
                           const typeColor =
                             method.type === "bank_transfer"
                               ? "text-blue-400"
@@ -2130,7 +2141,7 @@ function ServiceOrderDetailPage() {
                                 </div>
                                 {isSelected && (
                                   <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                                    Toca para deseleccionar
+                                    {sod("tapToDeselect")}
                                   </span>
                                 )}
                               </button>
@@ -2141,25 +2152,25 @@ function ServiceOrderDetailPage() {
                                     <div className="space-y-1">
                                       {method.bank_name && (
                                         <p>
-                                          <span className="text-muted-foreground/70">Banco:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("bank")}</span>{" "}
                                           {method.bank_name}
                                         </p>
                                       )}
                                       {method.account_number && (
                                         <p className="font-mono">
-                                          <span className="text-muted-foreground/70">Cuenta:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("account")}</span>{" "}
                                           {method.account_number}
                                         </p>
                                       )}
                                       {method.account_holder && (
                                         <p>
-                                          <span className="text-muted-foreground/70">Titular:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("holder")}</span>{" "}
                                           {method.account_holder}
                                         </p>
                                       )}
                                       {method.holder_ci && (
                                         <p>
-                                          <span className="text-muted-foreground/70">CI:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("ci")}</span>{" "}
                                           {method.holder_ci}
                                         </p>
                                       )}
@@ -2169,19 +2180,19 @@ function ServiceOrderDetailPage() {
                                     <div className="space-y-1">
                                       {method.phone_number && (
                                         <p className="font-mono">
-                                          <span className="text-muted-foreground/70">Teléfono:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("phone")}</span>{" "}
                                           {method.phone_number}
                                         </p>
                                       )}
                                       {method.holder_ci && (
                                         <p>
-                                          <span className="text-muted-foreground/70">CI:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("ci")}</span>{" "}
                                           {method.holder_ci}
                                         </p>
                                       )}
                                       {method.bank_name && (
                                         <p>
-                                          <span className="text-muted-foreground/70">Banco:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("bank")}</span>{" "}
                                           {method.bank_name}
                                         </p>
                                       )}
@@ -2189,8 +2200,7 @@ function ServiceOrderDetailPage() {
                                   )}
                                   {method.type === "cash" && (
                                     <p>
-                                      Paga en efectivo directamente en el taller al recoger el
-                                      vehículo.
+                                      {sod("cashDesc")}
                                     </p>
                                   )}
                                   {(method.type === "zelle" || method.type === "zinli") && (
@@ -2203,11 +2213,11 @@ function ServiceOrderDetailPage() {
                                       )}
                                       {method.account_holder && (
                                         <p>
-                                          <span className="text-muted-foreground/70">Titular:</span>{" "}
+                                          <span className="text-muted-foreground/70">{sod("holder")}</span>{" "}
                                           {method.account_holder}
                                         </p>
                                       )}
-                                      <p className="text-primary/70">Pago en USD — sin equivalente en Bs</p>
+                                      <p className="text-primary/70">{sod("usdPayment")}</p>
                                     </div>
                                   )}
                                 </div>
@@ -2222,25 +2232,25 @@ function ServiceOrderDetailPage() {
                   {financePaymentMethod && !isCash && (
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                        Número de referencia <span className="text-destructive">*</span>
+                        {sod("referenceNumber")} <span className="text-destructive">*</span>
                       </label>
                       <input
                         type="text"
                         value={financeReference}
                         onChange={(e) => setFinanceReference(e.target.value)}
-                        placeholder="Ej. 0123456789"
+                        placeholder={sod("referencePlaceholder")}
                         className="ml-input w-full"
                         required
                       />
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        Ingresa el número de transferencia o pago móvil realizado.
+                        {sod("referenceHelp")}
                       </p>
                     </div>
                   )}
 
                   {financePaymentMethod && isCash && (
                     <p className="text-xs text-muted-foreground">
-                      Paga en efectivo directamente en el taller al recoger el vehículo.
+                      {sod("cashDesc")}
                     </p>
                   )}
 
@@ -2249,7 +2259,7 @@ function ServiceOrderDetailPage() {
                       onClick={() => setShowFinanceModal(false)}
                       className="ml-btn ml-btn-outline"
                     >
-                      Cancelar
+                      {sod("cancel")}
                     </button>
                     <button
                       onClick={() => financeMutation.mutate()}
@@ -2263,7 +2273,7 @@ function ServiceOrderDetailPage() {
                     >
                       {financeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                       <Wallet className="h-4 w-4" />
-                      Financiar ${financed.toFixed(2)}
+                      {sod("financeBtn", undefined, { amount: financed.toFixed(2) })}
                     </button>
                   </div>
                 </div>
@@ -2276,24 +2286,24 @@ function ServiceOrderDetailPage() {
       {showInstallmentModal && activeInstallment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="ml-card w-full max-w-md p-6">
-            <h3 className="mb-4 text-lg font-semibold">Pagar cuota de financiamiento</h3>
+            <h3 className="mb-4 text-lg font-semibold">{sod("payFinanceInstallment")}</h3>
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Monto de la cuota</span>
+                  <span className="text-muted-foreground">{sod("installmentAmount")}</span>
                   <span className="font-mono font-bold text-lg">
                     ${activeInstallment.amount.toFixed(2)}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Vence: {new Date(activeInstallment.due_date).toLocaleDateString("es-ES")}</span>
+                  <span>{sod("dueDate")} {new Date(activeInstallment.due_date).toLocaleDateString("es-ES")}</span>
                 </div>
                 {bcvRate && bcvRate > 0 && !(() => {
                   const m = workshopPaymentMethods.find((m) => m.id === installmentPayMethod);
                   return m?.type === "zelle" || m?.type === "zinli";
                 })() && (
                   <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Equivalente Bs</span>
+                    <span>{sod("bsEquivalent")}</span>
                     <span className="font-mono">
                       {formatBcv(activeInstallment.amount, bcvRate)}
                     </span>
@@ -2303,7 +2313,7 @@ function ServiceOrderDetailPage() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Método de pago <span className="text-destructive">*</span>
+                  {sod("paymentMethod")} <span className="text-destructive">*</span>
                 </label>
                 <div className="space-y-2">
                   {workshopPaymentMethods.map((method) => {
@@ -2322,11 +2332,11 @@ function ServiceOrderDetailPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">
                             {method.type === "bank_transfer"
-                              ? "Transferencia bancaria"
+                              ? sod("bankTransfer")
                               : method.type === "mobile_payment"
-                                ? "Pago móvil"
+                                ? sod("mobilePayment")
                                 : method.type === "cash"
-                                  ? "Efectivo"
+                                  ? sod("cash")
                                   : method.type === "zelle"
                                     ? "Zelle"
                                     : method.type === "zinli"
@@ -2334,41 +2344,41 @@ function ServiceOrderDetailPage() {
                                       : method.type}
                           </span>
                           {selected && (
-                            <span className="text-xs text-primary">Seleccionado</span>
+                            <span className="text-xs text-primary">{sod("selected")}</span>
                           )}
                         </div>
                         {selected && method.type === "bank_transfer" && (
                           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                             {method.bank_name && (
-                              <p><span className="text-muted-foreground/70">Banco:</span> {method.bank_name}</p>
+                              <p><span className="text-muted-foreground/70">{sod("bank")}</span> {method.bank_name}</p>
                             )}
                             {method.account_number && (
-                              <p className="font-mono"><span className="text-muted-foreground/70">Cuenta:</span> {method.account_number}</p>
+                              <p className="font-mono"><span className="text-muted-foreground/70">{sod("account")}</span> {method.account_number}</p>
                             )}
                             {method.account_holder && (
-                              <p><span className="text-muted-foreground/70">Titular:</span> {method.account_holder}</p>
+                              <p><span className="text-muted-foreground/70">{sod("holder")}</span> {method.account_holder}</p>
                             )}
                             {method.holder_ci && (
-                              <p><span className="text-muted-foreground/70">CI:</span> {method.holder_ci}</p>
+                              <p><span className="text-muted-foreground/70">{sod("ci")}</span> {method.holder_ci}</p>
                             )}
                           </div>
                         )}
                         {selected && method.type === "mobile_payment" && (
                           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                             {method.phone_number && (
-                              <p className="font-mono"><span className="text-muted-foreground/70">Teléfono:</span> {method.phone_number}</p>
+                              <p className="font-mono"><span className="text-muted-foreground/70">{sod("phone")}</span> {method.phone_number}</p>
                             )}
                             {method.holder_ci && (
-                              <p><span className="text-muted-foreground/70">CI:</span> {method.holder_ci}</p>
+                              <p><span className="text-muted-foreground/70">{sod("ci")}</span> {method.holder_ci}</p>
                             )}
                             {method.bank_name && (
-                              <p><span className="text-muted-foreground/70">Banco:</span> {method.bank_name}</p>
+                              <p><span className="text-muted-foreground/70">{sod("bank")}</span> {method.bank_name}</p>
                             )}
                           </div>
                         )}
                         {selected && isCash && (
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Paga en efectivo directamente en el taller.
+                            {sod("cashDesc")}
                           </p>
                         )}
                         {selected && (method.type === "zelle" || method.type === "zinli") && (
@@ -2377,9 +2387,9 @@ function ServiceOrderDetailPage() {
                               <p className="font-mono"><span className="text-muted-foreground/70">Email:</span> {method.email}</p>
                             )}
                             {method.account_holder && (
-                              <p><span className="text-muted-foreground/70">Titular:</span> {method.account_holder}</p>
+                              <p><span className="text-muted-foreground/70">{sod("holder")}</span> {method.account_holder}</p>
                             )}
-                            <p className="text-primary/70">Pago en USD — sin equivalente en Bs</p>
+                            <p className="text-primary/70">{sod("usdPayment")}</p>
                           </div>
                         )}
                       </div>
@@ -2395,25 +2405,25 @@ function ServiceOrderDetailPage() {
               })() && (
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Número de referencia <span className="text-destructive">*</span>
+                    {sod("referenceNumber")} <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="text"
                     value={installmentReference}
                     onChange={(e) => setInstallmentReference(e.target.value)}
-                    placeholder="Ej. 0123456789"
+                    placeholder={sod("referencePlaceholder")}
                     className="ml-input w-full"
                     required
                   />
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Ingresa el número de transferencia o pago móvil realizado.
+                    {sod("referenceHelp")}
                   </p>
                 </div>
               )}
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Fecha de pago
+                  {sod("paymentDate")}
                 </label>
                 <input
                   type="date"
@@ -2424,7 +2434,7 @@ function ServiceOrderDetailPage() {
                   className="ml-input w-full"
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Se usará la tasa BCV de esta fecha para el cálculo en Bs
+                  {sod("bcvDateHint")}
                 </p>
               </div>
               {activeInstallment && (
@@ -2432,11 +2442,11 @@ function ServiceOrderDetailPage() {
                   {dateBcvLoading ? (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Obteniendo tasa BCV...
+                      {sod("gettingBcvRate")}
                     </div>
                   ) : dateBcvRate ? (
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm text-muted-foreground">Monto a pagar</span>
+                      <span className="text-sm text-muted-foreground">{sod("amountToPay")}</span>
                       <span className="font-mono text-lg font-bold text-primary">
                         {formatBcv(activeInstallment.amount, dateBcvRate)}
                         <span className="ml-1.5 text-sm font-normal text-muted-foreground">
@@ -2446,7 +2456,7 @@ function ServiceOrderDetailPage() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Monto a pagar</span>
+                      <span className="text-sm text-muted-foreground">{sod("amountToPay")}</span>
                       <span className="text-lg font-semibold text-foreground">
                         ${activeInstallment.amount.toFixed(2)}
                       </span>
@@ -2454,7 +2464,7 @@ function ServiceOrderDetailPage() {
                   )}
                   {activeInstallment.due_date && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Vence: {new Date(activeInstallment.due_date).toLocaleDateString("es-ES")}
+                      {sod("dueDate")} {new Date(activeInstallment.due_date).toLocaleDateString("es-ES")}
                     </p>
                   )}
                 </div>
@@ -2470,7 +2480,7 @@ function ServiceOrderDetailPage() {
                   }}
                   className="ml-btn ml-btn-outline"
                 >
-                  Cancelar
+                  {sod("cancel")}
                 </button>
                 <button
                   onClick={() => {
@@ -2490,7 +2500,7 @@ function ServiceOrderDetailPage() {
                 >
                   {installmentPayPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   <CreditCard className="h-4 w-4" />
-                  Pagar ${activeInstallment.amount.toFixed(2)}
+                  {sod("payAmount")} ${activeInstallment.amount.toFixed(2)}
                 </button>
               </div>
             </div>
@@ -2501,11 +2511,11 @@ function ServiceOrderDetailPage() {
       {showMoraModal && activeMora && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="ml-card w-full max-w-md p-6">
-            <h3 className="mb-4 text-lg font-semibold">Pagar mora</h3>
+            <h3 className="mb-4 text-lg font-semibold">{sod("payMoraTitle")}</h3>
             <div className="space-y-4">
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Monto de la mora</span>
+                  <span className="text-muted-foreground">{sod("moraAmount")}</span>
                   <span className="font-mono font-bold text-lg text-red-400">
                     ${activeMora.amount.toFixed(2)}
                   </span>
@@ -2515,7 +2525,7 @@ function ServiceOrderDetailPage() {
                   return d?.method_type === "ZELLE" || d?.method_type === "BINANCE";
                 })() && (
                   <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Equivalente Bs</span>
+                    <span>{sod("bsEquivalent")}</span>
                     <span className="font-mono">{formatBcv(activeMora.amount, bcvRate)}</span>
                   </div>
                 )}
@@ -2523,7 +2533,7 @@ function ServiceOrderDetailPage() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Destino del pago <span className="text-destructive">*</span>
+                  {sod("paymentDestination")} <span className="text-destructive">*</span>
                 </label>
                 <div className="space-y-2">
                   {paymentDestinationsLoading && (
@@ -2533,7 +2543,7 @@ function ServiceOrderDetailPage() {
                   )}
                   {!paymentDestinationsLoading && (paymentDestinations?.length ?? 0) === 0 && (
                     <div className="rounded-lg border border-border p-4 text-center text-sm text-muted-foreground">
-                      No hay métodos de pago disponibles. Contacta al administrador.
+                      {sod("noPaymentDestinations")}
                     </div>
                   )}
                   {paymentDestinations?.map((d) => {
@@ -2548,15 +2558,15 @@ function ServiceOrderDetailPage() {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">{d.label}</span>
-                          {selected && <span className="text-xs text-primary">Seleccionado</span>}
+                          {selected && <span className="text-xs text-primary">{sod("selected")}</span>}
                         </div>
                         {selected && (
                           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                            {d.bank_name && <p>Banco: <span className="text-foreground">{d.bank_name}</span></p>}
-                            {d.account_number && <p>Cuenta: <span className="text-foreground font-mono">{d.account_number}</span></p>}
-                            {d.holder_name && <p>Titular: <span className="text-foreground">{d.holder_name}</span></p>}
-                            {d.holder_ci && <p>CI: <span className="text-foreground">{d.holder_ci}</span></p>}
-                            {d.phone && <p>Tel: <span className="text-foreground font-mono">{d.phone}</span></p>}
+                            {d.bank_name && <p>{sod("bank")} <span className="text-foreground">{d.bank_name}</span></p>}
+                            {d.account_number && <p>{sod("account")} <span className="text-foreground font-mono">{d.account_number}</span></p>}
+                            {d.holder_name && <p>{sod("holder")} <span className="text-foreground">{d.holder_name}</span></p>}
+                            {d.holder_ci && <p>{sod("ci")} <span className="text-foreground">{d.holder_ci}</span></p>}
+                            {d.phone && <p>{sod("tel")} <span className="text-foreground font-mono">{d.phone}</span></p>}
                             {d.email && <p>Email: <span className="text-foreground">{d.email}</span></p>}
                           </div>
                         )}
@@ -2573,13 +2583,13 @@ function ServiceOrderDetailPage() {
               })() && (
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    Número de referencia <span className="text-destructive">*</span>
+                    {sod("referenceNumber")} <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="text"
                     value={moraReference}
                     onChange={(e) => setMoraReference(e.target.value)}
-                    placeholder="Ej. 0123456789"
+                    placeholder={sod("referencePlaceholder")}
                     className="ml-input w-full"
                     required
                   />
@@ -2588,7 +2598,7 @@ function ServiceOrderDetailPage() {
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Fecha de pago
+                  {sod("paymentDate")}
                 </label>
                 <input
                   type="date"
@@ -2610,7 +2620,7 @@ function ServiceOrderDetailPage() {
                   }}
                   className="ml-btn ml-btn-outline"
                 >
-                  Cancelar
+                  {sod("cancel")}
                 </button>
                 <button
                   onClick={() => {
@@ -2631,7 +2641,7 @@ function ServiceOrderDetailPage() {
                 >
                   {moraPayPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   <AlertTriangle className="h-4 w-4" />
-                  Pagar mora ${activeMora.amount.toFixed(2)}
+                  {sod("payMoraBtn", undefined, { amount: activeMora.amount.toFixed(2) })}
                 </button>
               </div>
             </div>
