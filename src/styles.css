@@ -132,6 +132,7 @@
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
     line-height: 1.6;
+    color-scheme: dark;
   }
 
   h1,

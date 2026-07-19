@@ -1459,6 +1459,10 @@ export async function adminDeleteOrder(id: string): Promise<void> {
   await api.delete(`/admin/orders/${id}`);
 }
 
+export async function adminForceCloseOrder(id: string): Promise<void> {
+  await api.post(`/admin/orders/${id}/force-close`);
+}
+
 export async function adminDeleteServiceOrder(id: string): Promise<void> {
   await api.delete(`/admin/service-orders/${id}`);
 }
@@ -2139,4 +2143,100 @@ export async function registerAllWorkshopsCommissionsPayment(
     rate,
     rate_date: rateDate,
   });
+}
+
+// --- Support Messages ---
+
+export interface SupportMessageDTO {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  subject: string;
+  message: string;
+  type: string;
+  related_order_id: string | null;
+  related_order_type: string | null;
+  status: string;
+  created_at: string;
+  read_at: string | null;
+  resolved_at: string | null;
+  admin_note: string | null;
+}
+
+export interface SupportMessageListDTO {
+  messages: SupportMessageDTO[];
+  total: number;
+}
+
+export async function createSupportMessage(input: {
+  subject: string;
+  message: string;
+  type?: string;
+  related_order_id?: string;
+}): Promise<void> {
+  await api.post("/admin/support/messages", input);
+}
+
+export async function adminListSupportMessages(status?: string): Promise<SupportMessageListDTO> {
+  const res = await api.get("/admin/admin/support/messages", {
+    params: status ? { status } : undefined,
+  });
+  return res.data.content;
+}
+
+export async function resolveSupportMessage(id: string, adminNote?: string): Promise<void> {
+  await api.patch(`/admin/admin/support/messages/${id}/resolve`, {
+    admin_note: adminNote,
+  });
+}
+
+export async function rejectSupportMessage(id: string, adminNote?: string): Promise<void> {
+  await api.patch(`/admin/admin/support/messages/${id}/reject`, {
+    admin_note: adminNote,
+  });
+}
+
+
+
+// --- Late Fees Users Summary ---
+
+export interface LateFeeUserSummaryDTO {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  late_fees_count: number;
+  total_late_fees_amount: number;
+  oldest_late_fee_days: number;
+  total_active_debt: number;
+  active_orders_count: number;
+}
+
+export interface LateFeeUsersSummaryDTO {
+  users: LateFeeUserSummaryDTO[];
+}
+
+export async function getLateFeesUsersSummary(): Promise<LateFeeUsersSummaryDTO> {
+  const res = await api.get("/admin/admin/late-fees/users-summary");
+  return res.data.content;
+}
+
+export interface UserOrderSummaryDTO {
+  type: string;
+  id: string;
+  short_id: string;
+  workshop_name: string;
+  total_amount: number;
+  pending_amount: number;
+  status: string;
+  created_at: string;
+}
+
+export interface UserOrdersSummaryDTO {
+  orders: UserOrderSummaryDTO[];
+}
+
+export async function getUserOrdersSummary(userId: string): Promise<UserOrdersSummaryDTO> {
+  const res = await api.get(`/admin/admin/late-fees/users/${userId}/orders`);
+  return res.data.content;
 }

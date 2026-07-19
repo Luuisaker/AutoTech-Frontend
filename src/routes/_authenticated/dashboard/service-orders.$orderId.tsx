@@ -1834,7 +1834,7 @@ function ServiceOrderDetailPage() {
                                 <div className="space-y-1">
                                   {method.email && (
                                     <p className="font-mono">
-                                      <span className="text-muted-foreground/70">Email:</span>{" "}
+                                      <span className="text-muted-foreground/70">{t("common.emailColon")}</span>{" "}
                                       {method.email}
                                     </p>
                                   )}
@@ -2207,7 +2207,7 @@ function ServiceOrderDetailPage() {
                                     <div className="space-y-1">
                                       {method.email && (
                                         <p className="font-mono">
-                                          <span className="text-muted-foreground/70">Email:</span>{" "}
+                                          <span className="text-muted-foreground/70">{t("common.emailColon")}</span>{" "}
                                           {method.email}
                                         </p>
                                       )}
@@ -2384,7 +2384,7 @@ function ServiceOrderDetailPage() {
                         {selected && (method.type === "zelle" || method.type === "zinli") && (
                           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                             {method.email && (
-                              <p className="font-mono"><span className="text-muted-foreground/70">Email:</span> {method.email}</p>
+                              <p className="font-mono"><span className="text-muted-foreground/70">{t("common.emailColon")}</span> {method.email}</p>
                             )}
                             {method.account_holder && (
                               <p><span className="text-muted-foreground/70">{sod("holder")}</span> {method.account_holder}</p>
@@ -2567,7 +2567,7 @@ function ServiceOrderDetailPage() {
                             {d.holder_name && <p>{sod("holder")} <span className="text-foreground">{d.holder_name}</span></p>}
                             {d.holder_ci && <p>{sod("ci")} <span className="text-foreground">{d.holder_ci}</span></p>}
                             {d.phone && <p>{sod("tel")} <span className="text-foreground font-mono">{d.phone}</span></p>}
-                            {d.email && <p>Email: <span className="text-foreground">{d.email}</span></p>}
+                            {d.email && <p>{t("common.emailColon")} <span className="text-foreground">{d.email}</span></p>}
                           </div>
                         )}
                       </div>

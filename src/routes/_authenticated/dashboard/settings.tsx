@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import type { AxiosError } from "axios";
 import {
@@ -18,6 +18,8 @@ import {
   Sun,
   Moon,
   Languages,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 
 import { useAuth } from "../../../lib/auth-context";
@@ -32,7 +34,7 @@ import {
   disable2FA,
   type UpdateProfileInput,
 } from "../../../lib/auth";
-import { getPhotoUrl } from "../../../lib/api";
+import { getPhotoUrl, createSupportMessage, getMyOrders, getServiceOrders } from "../../../lib/api";
 
 export const Route = createFileRoute("/_authenticated/dashboard/settings")({
   component: SettingsPage,
@@ -41,10 +43,100 @@ export const Route = createFileRoute("/_authenticated/dashboard/settings")({
 const inputBase =
   "block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong";
 
+function getExifOrientation(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/jpeg")) {
+      resolve(1);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const view = new DataView(reader.result as ArrayBuffer);
+      if (view.getUint16(0) !== 0xffd8) {
+        resolve(1);
+        return;
+      }
+      let offset = 2;
+      let marker: number;
+      while (offset < view.byteLength) {
+        marker = view.getUint16(offset);
+        if (marker === 0xffe1) {
+          const exifOffset = offset + 10;
+          const tiffOffset = exifOffset + 6;
+          const bigEndian = view.getUint16(tiffOffset) === 0x4d4d;
+          const getUint16 = (off: number) =>
+            bigEndian ? view.getUint16(off) : view.getUint16(off, true);
+          const ifdOffset = tiffOffset + (bigEndian ? view.getUint32(tiffOffset + 4) : view.getUint32(tiffOffset + 4, true));
+          const entries = getUint16(tiffOffset + ifdOffset);
+          for (let i = 0; i < entries; i++) {
+            const entryOffset = tiffOffset + ifdOffset + 2 + i * 12;
+            if (getUint16(entryOffset) === 0x0112) {
+              resolve(getUint16(entryOffset + 8));
+              return;
+            }
+          }
+          resolve(1);
+          return;
+        }
+        offset += 2 + view.getUint16(offset + 2) + 2;
+      }
+      resolve(1);
+    };
+    reader.onerror = () => resolve(1);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function correctImageOrientation(file: File): Promise<File> {
+  const orientation = await getExifOrientation(file);
+  if (orientation <= 1) return file;
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = reject;
+    image.src = url;
+  });
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+
+  const swaps = orientation >= 5 && orientation <= 8;
+  canvas.width = swaps ? img.height : img.width;
+  canvas.height = swaps ? img.width : img.height;
+
+  switch (orientation) {
+    case 2: ctx.transform(-1, 0, 0, 1, canvas.width, 0); break;
+    case 3: ctx.transform(-1, 0, 0, -1, canvas.width, canvas.height); break;
+    case 4: ctx.transform(1, 0, 0, -1, 0, canvas.height); break;
+    case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+    case 6: ctx.transform(0, 1, -1, 0, canvas.height, 0); break;
+    case 7: ctx.transform(0, -1, -1, 0, canvas.height, canvas.width); break;
+    case 8: ctx.transform(0, -1, 1, 0, 0, canvas.width); break;
+  }
+
+  ctx.drawImage(img, 0, 0);
+
+  const blob = await new Promise<Blob>((resolve) => {
+    canvas.toBlob((b) => resolve(b || file), "image/jpeg", 0.92);
+  });
+
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const name = file.name.replace(/\.[^.]+$/, "") + "_oriented." + ext;
+  return new File([blob], name, { type: blob.type || file.type });
+}
+
 function SettingsPage() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, roles } = useAuth();
   const { locale, setLocale, t } = useLocale();
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const supportTypeRef = useRef<HTMLDivElement>(null);
+  const supportOrderRef = useRef<HTMLDivElement>(null);
 
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     if (typeof document !== "undefined") {
@@ -81,6 +173,14 @@ function SettingsPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportType, setSupportType] = useState("OTHER");
+  const [supportTypeOpen, setSupportTypeOpen] = useState(false);
+  const [supportRelatedOrder, setSupportRelatedOrder] = useState("");
+  const [supportOrderOpen, setSupportOrderOpen] = useState(false);
+  const [supportSent, setSupportSent] = useState(false);
   const [twoFASecret, setTwoFASecret] = useState<string | null>(null);
   const [twoFAUri, setTwoFAUri] = useState<string | null>(null);
   const [twoFACode, setTwoFACode] = useState("");
@@ -111,6 +211,19 @@ function SettingsPage() {
       setPhone(user.phone);
     }
   }, [user]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (supportTypeRef.current && !supportTypeRef.current.contains(e.target as Node)) {
+        setSupportTypeOpen(false);
+      }
+      if (supportOrderRef.current && !supportOrderRef.current.contains(e.target as Node)) {
+        setSupportOrderOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function extractErrorMsg(err: unknown) {
     const axiosErr = err as AxiosError<{ detail?: unknown; message?: string }>;
@@ -203,13 +316,45 @@ function SettingsPage() {
     },
   });
 
+  const { data: myOrders } = useQuery({
+    queryKey: ["my-orders-support"],
+    queryFn: () => getMyOrders(),
+    enabled: showSupportModal,
+  });
+
+  const { data: myServiceOrders } = useQuery({
+    queryKey: ["my-service-orders-support"],
+    queryFn: () => getServiceOrders(),
+    enabled: showSupportModal,
+  });
+
+  const supportMutation = useMutation({
+    mutationFn: () =>
+      createSupportMessage({
+        subject: supportSubject,
+        message: supportMessage,
+        type: supportType,
+        related_order_id: supportRelatedOrder ? supportRelatedOrder.split(":")[1] : undefined,
+      }),
+    onSuccess: () => {
+      setSupportSent(true);
+      setSupportSubject("");
+      setSupportMessage("");
+      setSupportType("OTHER");
+      setSupportRelatedOrder("");
+      setTimeout(() => setSupportSent(false), 3000);
+    },
+  });
+
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     revokePendingPhotoUrl();
-    setPendingPhoto(file);
-    setPendingPhotoUrl(URL.createObjectURL(file));
+
+    const correctedFile = await correctImageOrientation(file);
+    setPendingPhoto(correctedFile);
+    setPendingPhotoUrl(URL.createObjectURL(correctedFile));
     setPendingPhotoRemoved(false);
   }
 
@@ -494,7 +639,8 @@ function SettingsPage() {
         </div>
       </section>
 
-      <section className="ml-card p-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <section className="ml-card p-6">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-background">
               <ShieldCheck className="h-5 w-5 text-muted-foreground" />
@@ -547,6 +693,34 @@ function SettingsPage() {
           </div>
         </section>
 
+        {!roles.includes("ADMIN") && !roles.includes("SUPERADMIN") && (
+          <section className="ml-card p-6">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-background">
+                <MessageSquare className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold">{t("support.title")}</h2>
+                <p className="text-xs text-muted-foreground">{t("support.subtitle")}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-border pt-5">
+              <p className="text-sm text-muted-foreground">{t("support.subtitle")}</p>
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowSupportModal(true)}
+                  className="ml-btn ml-btn-outline"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  {t("support.send")}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+      
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-surface p-6 shadow-lg">
@@ -694,6 +868,221 @@ function SettingsPage() {
                     <Save className="h-4 w-4" />
                   )}
                   {t("common.save")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Support Modal */}
+      {showSupportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/15">
+                  <MessageSquare className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold tracking-tight">{t("support.title")}</h2>
+                  <p className="text-xs text-muted-foreground">{t("support.subtitle")}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSupportModal(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {supportSent && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <div>
+                  <p className="text-sm font-medium text-emerald-500">{t("support.sent")}</p>
+                  <p className="text-xs text-muted-foreground">{t("support.sentDesc")}</p>
+                </div>
+              </div>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                supportMutation.mutate();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  {t("support.type")}
+                </label>
+                <div className="relative" ref={supportTypeRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSupportTypeOpen(!supportTypeOpen)}
+                    className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-surface/80 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
+                  >
+                    {t(`support.types.${supportType}`)}
+                    <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {supportTypeOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-surface shadow-lg">
+                      {(["REPORT", "QUESTION", "SUGGESTION", "COMPLAINT", "OTHER"] as const).map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => { setSupportType(val); setSupportTypeOpen(false); }}
+                          className={`block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors ${
+                            supportType === val ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-surface/80"
+                          }`}
+                        >
+                          {t(`support.types.${val}`)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  {t("support.relatedOrder")}
+                </label>
+                <div className="relative" ref={supportOrderRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSupportOrderOpen(!supportOrderOpen)}
+                    className="flex w-full cursor-pointer items-center justify-between rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-surface/80 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
+                  >
+                    {supportRelatedOrder
+                      ? (() => {
+                          const [type, id] = supportRelatedOrder.split(":");
+                          if (type === "order") {
+                            const o = (myOrders || []).find((x) => x.id === id);
+                            if (o) {
+                              const date = new Date(o.created_at).toLocaleDateString(locale === "es" ? "es-VE" : "en-US");
+                              return `${locale === "es" ? "Compra" : "Purchase"} · ${o.workshop_name || "—"} · $${o.total_amount.toFixed(2)} · ${date}`;
+                            }
+                          } else {
+                            const o = (myServiceOrders || []).find((x) => x.id === id);
+                            if (o) {
+                              const date = new Date(o.created_at).toLocaleDateString(locale === "es" ? "es-VE" : "en-US");
+                              const amount = (o.final_price ?? o.base_price).toFixed(2);
+                              return `${locale === "es" ? "Servicio" : "Service"} · ${o.workshop_name || o.service_name || "—"} · $${amount} · ${date}`;
+                            }
+                          }
+                          return t("support.noRelatedOrder");
+                        })()
+                      : t("support.noRelatedOrder")}
+                    <svg className="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {supportOrderOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-surface shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => { setSupportRelatedOrder(""); setSupportOrderOpen(false); }}
+                        className={`block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors ${
+                          supportRelatedOrder === "" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-surface/80"
+                        }`}
+                      >
+                        {t("support.noRelatedOrder")}
+                      </button>
+                      {(myOrders || []).map((o) => {
+                        const date = new Date(o.created_at).toLocaleDateString(locale === "es" ? "es-VE" : "en-US");
+                        return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => { setSupportRelatedOrder(`order:${o.id}`); setSupportOrderOpen(false); }}
+                          className={`block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors ${
+                            supportRelatedOrder === `order:${o.id}` ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-surface/80"
+                          }`}
+                        >
+                          <span className="font-medium">{locale === "es" ? "Compra" : "Purchase"}</span>
+                          {" · "}
+                          {o.workshop_name || "—"}
+                          {" · "}
+                          <span className="text-muted-foreground">${o.total_amount.toFixed(2)}</span>
+                          {" · "}
+                          <span className="text-muted-foreground">{date}</span>
+                        </button>
+                        );
+                      })}
+                      {(myServiceOrders || []).map((o) => {
+                        const date = new Date(o.created_at).toLocaleDateString(locale === "es" ? "es-VE" : "en-US");
+                        const amount = (o.final_price ?? o.base_price).toFixed(2);
+                        return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => { setSupportRelatedOrder(`service:${o.id}`); setSupportOrderOpen(false); }}
+                          className={`block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors ${
+                            supportRelatedOrder === `service:${o.id}` ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-surface/80"
+                          }`}
+                        >
+                          <span className="font-medium">{locale === "es" ? "Servicio" : "Service"}</span>
+                          {" · "}
+                          {o.workshop_name || o.service_name || "—"}
+                          {" · "}
+                          <span className="text-muted-foreground">${amount}</span>
+                          {" · "}
+                          <span className="text-muted-foreground">{date}</span>
+                        </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  {t("support.subject")}
+                </label>
+                <input
+                  className={inputBase}
+                  value={supportSubject}
+                  onChange={(e) => setSupportSubject(e.target.value)}
+                  placeholder={t("support.subjectPlaceholder")}
+                  required
+                  maxLength={200}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  {t("support.message")}
+                </label>
+                <textarea
+                  className={`${inputBase} min-h-[120px] resize-y`}
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  placeholder={t("support.messagePlaceholder")}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSupportModal(false)}
+                  className="ml-btn ml-btn-outline"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={supportMutation.isPending || !supportSubject || !supportMessage}
+                  className="ml-btn ml-btn-primary"
+                >
+                  {supportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {supportMutation.isPending ? t("support.sending") : t("support.send")}
                 </button>
               </div>
             </form>

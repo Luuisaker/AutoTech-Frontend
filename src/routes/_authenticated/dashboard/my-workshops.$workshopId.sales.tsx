@@ -31,8 +31,6 @@ import {
   Building2,
   Smartphone,
   Mail,
-  Wallet,
-  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "../../../lib/locale-context";
@@ -63,11 +61,10 @@ import {
   type WorkshopOrderDTO,
   getMyCommissions,
   registerAllWorkshopsCommissionsPayment,
+  registerAllMyCommissionsPayment,
   type MyCommissions,
   getPaymentDestinations,
   type PaymentDestination,
-  getMyCreditLine,
-  type MyCreditLine,
 } from "../../../lib/api";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 
@@ -106,7 +103,7 @@ function WorkshopSalesContent({ workshopId }: { workshopId: string }) {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<
-    "sales" | "parts" | "services" | "service-orders" | "cars" | "commissions" | "credit"
+    "sales" | "parts" | "services" | "service-orders" | "cars" | "commissions"
   >(() => {
     const saved = sessionStorage.getItem(`workshop-tab-${workshopId}`);
     return (saved as any) || "parts";
@@ -275,13 +272,6 @@ function WorkshopSalesContent({ workshopId }: { workshopId: string }) {
           <Percent className="h-4 w-4" />
           {t("workshopSales.tabs.commissions")}
         </button>
-        <button
-          onClick={() => handleTabChange("credit")}
-          className={`ml-tab flex items-center gap-1.5 whitespace-nowrap ${activeTab === "credit" ? "ml-tab-active" : ""}`}
-        >
-          <Wallet className="h-4 w-4" />
-          {t("workshopSales.tabs.credit")}
-        </button>
       </div>
 
       {activeTab === "sales" ? (
@@ -443,9 +433,7 @@ function WorkshopSalesContent({ workshopId }: { workshopId: string }) {
       ) : activeTab === "service-orders" ? (
         <ServiceOrderHistorySection workshopId={workshopId} />
       ) : activeTab === "commissions" ? (
-        <WorkshopCommissionsSection />
-      ) : activeTab === "credit" ? (
-        <WorkshopCreditSection />
+        <WorkshopCommissionsSection workshopId={workshopId} />
       ) : (
         <CarsInServiceSection workshopId={workshopId} />
       )}
@@ -1702,7 +1690,7 @@ function CarsInServiceSection({ workshopId }: { workshopId: string }) {
   );
 }
 
-function WorkshopCommissionsSection() {
+function WorkshopCommissionsSection({ workshopId }: { workshopId: string }) {
   const { t } = useLocale();
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<MyCommissions>({
@@ -1712,9 +1700,9 @@ function WorkshopCommissionsSection() {
 
   const [payingAll, setPayingAll] = useState(false);
 
-  const commissions = data?.commissions ?? [];
-  const totalPending = data?.total_pending ?? 0;
-  const totalPaid = data?.total_paid ?? 0;
+  const commissions = (data?.commissions ?? []).filter((c) => c.workshop_id === workshopId);
+  const totalPending = commissions.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.commission_amount, 0);
+  const totalPaid = commissions.filter((c) => c.status === "PAID").reduce((s, c) => s + c.commission_amount, 0);
 
   const pendingCommissions = commissions.filter((c) => c.status === "PENDING");
 
@@ -1845,6 +1833,7 @@ function WorkshopCommissionsSection() {
 
       {payingAll && (
         <WorkshopCommissionPaymentModal
+          workshopId={workshopId}
           totalAmount={totalPending}
           onClose={() => setPayingAll(false)}
           onPaid={() => {
@@ -1857,171 +1846,13 @@ function WorkshopCommissionsSection() {
   );
 }
 
-function WorkshopCreditSection() {
-  const { t } = useLocale();
-  const { data: creditLine, isLoading } = useQuery<MyCreditLine>({
-    queryKey: ["credit-line"],
-    queryFn: getMyCreditLine,
-  });
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!creditLine) {
-    return (
-      <div className="ml-empty-state">
-        <Wallet className="ml-empty-state-icon" />
-        <p className="ml-empty-state-title">{t("workshopSales.credit.unavailable")}</p>
-        <p className="ml-empty-state-desc">{t("workshopSales.credit.unavailableDesc")}</p>
-      </div>
-    );
-  }
-
-  const levelLabel = (level: number) => {
-    const labels: Record<number, string> = {
-      1: t("workshopSales.credit.level1"),
-      2: t("workshopSales.credit.level2"),
-      3: t("workshopSales.credit.level3"),
-      4: t("workshopSales.credit.level4"),
-    };
-    return labels[level] ?? `Level ${level}`;
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Level + points summary */}
-      <div className="ml-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">{t("workshopSales.credit.title")}</h2>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg bg-background/50 p-4">
-            <p className="text-xs text-muted-foreground">{t("workshopSales.credit.currentLevel")}</p>
-            <p className="text-2xl font-bold text-primary">{levelLabel(creditLine.level)}</p>
-          </div>
-          <div className="rounded-lg bg-background/50 p-4">
-            <p className="text-xs text-muted-foreground">{t("workshopSales.credit.consolidatedPoints")}</p>
-            <p className="text-2xl font-bold text-primary">{creditLine.credit_points.toFixed(2)}</p>
-          </div>
-          <div className="rounded-lg bg-background/50 p-4">
-            <p className="text-xs text-muted-foreground">{t("workshopSales.credit.pendingPoints")}</p>
-            <p className="text-2xl font-bold text-amber-400">{creditLine.pending_points.toFixed(2)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t("workshopSales.credit.pendingPointsDesc")}</p>
-          </div>
-        </div>
-        {creditLine.points_to_next_level !== null && (
-          <div className="mt-4 rounded-lg bg-background/50 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-muted-foreground">{t("workshopSales.credit.toNextLevel")}</p>
-              <p className="text-sm font-bold text-emerald-500">
-                {creditLine.points_to_next_level.toFixed(2)} {t("workshopSales.credit.ptsRemaining")}
-              </p>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{
-                  width: `${Math.min(100, (creditLine.credit_points / (creditLine.credit_points + creditLine.points_to_next_level)) * 100)}%`,
-                }}
-              />
-            </div>
-            {creditLine.pending_points > 0 && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t("workshopSales.credit.ifPayOnTime", "", { points: creditLine.pending_points.toFixed(2) })}
-                {creditLine.pending_points >= creditLine.points_to_next_level
-                  ? ` — ${t("workshopSales.credit.enoughToLevelUp")}!`
-                  : ` — ${t("workshopSales.credit.ptsShort", "", { remaining: (creditLine.points_to_next_level - creditLine.pending_points).toFixed(2) })}`}
-              </p>
-            )}
-          </div>
-        )}
-        {creditLine.points_to_next_level === null && (
-          <p className="mt-3 text-sm font-medium text-emerald-500">{t("workshopSales.credit.maxLevel")}</p>
-        )}
-      </div>
-
-      {/* Parts credit line */}
-      <div className="ml-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-primary" />
-          <h3 className="text-base font-semibold">{t("workshopSales.credit.partsLine")}</h3>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-baseline gap-2">
-            <span className={`text-2xl font-bold ${creditLine.parts_available < 0 ? "text-red-400" : "text-primary"}`}>
-              ${Math.max(0, creditLine.parts_available).toFixed(2)}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              / ${creditLine.parts_limit.toFixed(2)}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{
-                width: `${creditLine.parts_limit > 0 ? Math.max(0, Math.min(100, (creditLine.parts_available / creditLine.parts_limit) * 100)) : 0}%`,
-              }}
-            />
-          </div>
-          {creditLine.parts_debt > 0 && (
-            <p className={`text-xs ${creditLine.parts_available < 0 ? "text-red-400 font-medium" : "text-muted-foreground"}`}>
-              {t("workshopSales.credit.currentDebt")}: ${creditLine.parts_debt.toFixed(2)}
-              {creditLine.parts_available < 0 && ` — ${t("workshopSales.credit.exceeded")}`}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Service credit line */}
-      <div className="ml-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-primary" />
-          <h3 className="text-base font-semibold">{t("workshopSales.credit.serviceLine")}</h3>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-baseline gap-2">
-            <span className={`text-2xl font-bold ${creditLine.service_available < 0 ? "text-red-400" : "text-primary"}`}>
-              ${Math.max(0, creditLine.service_available).toFixed(2)}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              / ${creditLine.service_limit.toFixed(2)}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{
-                width: `${creditLine.service_limit > 0 ? Math.max(0, Math.min(100, (creditLine.service_available / creditLine.service_limit) * 100)) : 0}%`,
-              }}
-            />
-          </div>
-          {creditLine.service_debt > 0 && (
-            <p className={`text-xs ${creditLine.service_available < 0 ? "text-red-400 font-medium" : "text-muted-foreground"}`}>
-              {t("workshopSales.credit.currentDebt")}: ${creditLine.service_debt.toFixed(2)}
-              {creditLine.service_available < 0 && ` — ${t("workshopSales.credit.exceeded")}`}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <p className="text-center text-xs text-muted-foreground">
-        {t("workshopSales.credit.note")}
-      </p>
-    </div>
-  );
-}
-
 function WorkshopCommissionPaymentModal({
+  workshopId,
   totalAmount,
   onClose,
   onPaid,
 }: {
+  workshopId: string;
   totalAmount: number;
   onClose: () => void;
   onPaid: () => void;
@@ -2074,7 +1905,8 @@ function WorkshopCommissionPaymentModal({
         rate = bcvRate;
         rateDate = payDate;
       }
-      await registerAllWorkshopsCommissionsPayment(
+      await registerAllMyCommissionsPayment(
+        workshopId,
         dest.method_type,
         isForeign ? undefined : reference.trim() || undefined,
         rate,

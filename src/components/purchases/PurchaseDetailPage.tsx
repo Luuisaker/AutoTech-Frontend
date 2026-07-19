@@ -98,7 +98,7 @@ export function PurchaseDetailPage() {
 
   const isClient = roles.includes("CLIENT");
   const isWorkshopOwner = roles.includes("WORKSHOP_OWNER");
-  const isAdmin = roles.includes("ADMIN");
+  const isAdmin = roles.includes("ADMIN") || roles.includes("SUPERADMIN");
   const isWorkshopContext = location.pathname.includes("/my-workshops/");
 
   const pd = (key: string, fallback?: string, params?: Record<string, string | number>) =>
@@ -502,7 +502,7 @@ export function PurchaseDetailPage() {
                                 <p className="font-mono text-xs font-bold">
                                   ${inst.amount.toFixed(2)}
                                 </p>
-                                {inst.status !== "PAID" && (
+                                {inst.status !== "PAID" && installmentsList.length > 1 && (
                                   <p className="text-[10px] text-primary/70">
                                     {pd("ptsOnTime", "+{amount} pts", { amount: inst.amount.toFixed(2) })}
                                   </p>
@@ -861,7 +861,7 @@ export function PurchaseDetailPage() {
                             </span>
                           )}
                         </div>
-                        {installment.status !== "PAID" && (
+                        {installment.status !== "PAID" && installmentsList.length > 1 && (
                           <p className="mt-0.5 text-[11px] text-primary/70">
                             {pd("ptsOnTime", "+{amount} pts", { amount: installment.amount.toFixed(2) })}
                           </p>
@@ -936,7 +936,7 @@ export function PurchaseDetailPage() {
                           {pd("pay")}
                         </button>
                       )}
-                      {installment.status === "PENDING_VERIFICATION" && isWorkshopOwner && (
+                      {installment.status === "PENDING_VERIFICATION" && (isWorkshopOwner || isAdmin) && (
                         <button
                           onClick={() => {
                             setPayingInstallment(installment);
@@ -1338,7 +1338,7 @@ export function PurchaseDetailPage() {
         </div>
       )}
 
-      {payingInstallment && isWorkshopOwner && (
+      {payingInstallment && (isWorkshopOwner || isAdmin) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
             <h2 className="text-lg font-semibold tracking-tight">{pd("paymentInfo")}</h2>

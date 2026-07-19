@@ -43,6 +43,7 @@ import {
   UserPlus,
   XCircle,
   CheckCircle2,
+  Headphones,
 } from "lucide-react";
 import { useAuth } from "../../../lib/auth-context";
 import { getToken, decodeJwt } from "../../../lib/token";
@@ -64,6 +65,7 @@ import {
   adminDeleteVehicle,
   adminListOrders,
   adminDeleteOrder,
+  adminForceCloseOrder,
   adminDeleteServiceOrder,
   adminListServiceOrders,
   type AdminOrder,
@@ -105,9 +107,18 @@ import {
   type AdminPaymentMethod,
   type CreateAdminPaymentMethodInput,
   type SuperadminCreateUserInput,
+  adminListSupportMessages,
+  resolveSupportMessage,
+  rejectSupportMessage,
+  getLateFeesUsersSummary,
+  getUserOrdersSummary,
+  type SupportMessageDTO,
+  type LateFeeUserSummaryDTO,
+  type UserOrderSummaryDTO,
 } from "../../../lib/api";
 import { toast } from "sonner";
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
+import { useLocale } from "../../../lib/locale-context";
 
 export const Route = createFileRoute("/_authenticated/dashboard/admin")({
   component: AdminPage,
@@ -122,26 +133,28 @@ export const Route = createFileRoute("/_authenticated/dashboard/admin")({
 });
 
 type Tab =
-  "stats" | "users" | "workshops" | "parts" | "vehicles" | "orders" | "service-orders" | "earnings" | "credit" | "commissions" | "late-fees" | "payment-methods";
+  "stats" | "users" | "workshops" | "parts" | "vehicles" | "orders" | "service-orders" | "earnings" | "credit" | "commissions" | "late-fees" | "support" | "payment-methods";
 
-const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }>; superadminOnly?: boolean; adminOnly?: boolean }[] = [
-  { key: "stats", label: "Estadísticas", icon: BarChart3 },
-  { key: "users", label: "Usuarios", icon: Users },
-  { key: "credit", label: "Crédito", icon: Wallet, adminOnly: true },
-  { key: "workshops", label: "Talleres", icon: Store },
-  { key: "parts", label: "Repuestos", icon: Package, adminOnly: true },
-  { key: "vehicles", label: "Vehículos", icon: Car, adminOnly: true },
-  { key: "orders", label: "Órdenes", icon: CreditCard },
-  { key: "service-orders", label: "Servicios", icon: Wrench },
-  { key: "earnings", label: "Ganancias", icon: DollarSign }, 
-  { key: "commissions", label: "Comisiones", icon: Percent, superadminOnly: true },
-  { key: "late-fees", label: "Moras", icon: AlertTriangle, superadminOnly: true },
-  { key: "payment-methods", label: "Métodos de Pago", icon: CreditCard, superadminOnly: true },
+const TABS: { key: Tab; labelKey: string; icon: React.ComponentType<{ className?: string }>; superadminOnly?: boolean; adminOnly?: boolean }[] = [
+  { key: "stats", labelKey: "admin.tabs.stats", icon: BarChart3 },
+  { key: "users", labelKey: "admin.tabs.users", icon: Users },
+  { key: "credit", labelKey: "admin.tabs.credit", icon: Wallet, adminOnly: true },
+  { key: "workshops", labelKey: "admin.tabs.workshops", icon: Store },
+  { key: "parts", labelKey: "admin.tabs.parts", icon: Package, adminOnly: true },
+  { key: "vehicles", labelKey: "admin.tabs.vehicles", icon: Car, adminOnly: true },
+  { key: "orders", labelKey: "admin.tabs.orders", icon: CreditCard },
+  { key: "service-orders", labelKey: "admin.tabs.serviceOrders", icon: Wrench },
+  { key: "earnings", labelKey: "admin.tabs.earnings", icon: DollarSign }, 
+  { key: "commissions", labelKey: "admin.tabs.commissions", icon: Percent, superadminOnly: true },
+  { key: "late-fees", labelKey: "admin.tabs.lateFees", icon: AlertTriangle, superadminOnly: true },
+  { key: "support", labelKey: "adminSupport.title", icon: Headphones },
+  { key: "payment-methods", labelKey: "admin.tabs.paymentMethods", icon: CreditCard, superadminOnly: true },
 ];
 
 function AdminPage() {
   const { roles } = useAuth();
   const location = useLocation();
+  const { t } = useLocale();
   const [tab, setTab] = useState<Tab>(() => {
     const saved = sessionStorage.getItem("admin-tab");
     return (saved as Tab) || "stats";
@@ -155,7 +168,7 @@ function AdminPage() {
   if (!roles.includes("ADMIN") && !roles.includes("SUPERADMIN")) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-muted-foreground">No tienes permisos de administrador.</p>
+        <p className="text-muted-foreground">{t("admin.noPermissions")}</p>
       </div>
     );
   }
@@ -165,31 +178,31 @@ function AdminPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Panel de Administración</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("admin.title")}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Gestiona usuarios, talleres, repuestos y vehículos de la plataforma.
+          {t("admin.subtitle")}
         </p>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface p-1">
-        {TABS.filter((t) => {
-          if (t.superadminOnly && !roles.includes("SUPERADMIN")) return false;
-          if (t.adminOnly && roles.includes("SUPERADMIN")) return false;
+      <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1">
+        {TABS.filter((tabItem) => {
+          if (tabItem.superadminOnly && !roles.includes("SUPERADMIN")) return false;
+          if (tabItem.adminOnly && roles.includes("SUPERADMIN")) return false;
           return true;
-        }).map((t) => (
+        }).map((tabItem) => (
           <button
-            key={t.key}
-            onClick={() => handleTabChange(t.key)}
-            className={`flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-              tab === t.key
+            key={tabItem.key}
+            onClick={() => handleTabChange(tabItem.key)}
+            className={`flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all flex-1 min-w-fit ${
+              tab === tabItem.key
                 ? "bg-primary text-white shadow-sm"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <t.icon className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.label}</span>
+            <tabItem.icon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t(tabItem.labelKey)}</span>
           </button>
         ))}
       </div>
@@ -205,6 +218,7 @@ function AdminPage() {
       {tab === "credit" && <CreditTab />}
       {tab === "commissions" && <CommissionsTab />}
       {tab === "late-fees" && <LateFeesTab />}
+      {tab === "support" && <SupportTab />}
       {tab === "payment-methods" && <PaymentMethodsTab />}
     </div>
   );
@@ -213,6 +227,7 @@ function AdminPage() {
 // ---- Stats Tab ----
 
 function StatsTab() {
+  const { t } = useLocale();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: getAdminStats,
@@ -229,38 +244,38 @@ function StatsTab() {
   if (!stats) return null;
 
   const cards = [
-    { icon: Users, label: "Usuarios", value: stats.total_users, color: "text-blue-500" },
-    { icon: Store, label: "Talleres", value: stats.total_workshops, color: "text-emerald-500" },
+    { icon: Users, label: t("admin.stats.users"), value: String(stats.total_users), color: "text-blue-500" },
+    { icon: Store, label: t("admin.stats.workshops"), value: String(stats.total_workshops), color: "text-emerald-500" },
     {
       icon: CheckCircle,
-      label: "Certificados",
-      value: stats.total_certified_workshops,
+      label: t("admin.stats.certified"),
+      value: String(stats.total_certified_workshops),
       color: "text-emerald-500",
     },
-    { icon: Package, label: "Repuestos", value: stats.total_parts, color: "text-amber-500" },
-    { icon: Car, label: "Vehículos", value: stats.total_vehicles, color: "text-violet-500" },
-    { icon: ShoppingBag, label: "Ventas", value: stats.total_sales, color: "text-cyan-500" },
+    { icon: Package, label: t("admin.stats.parts"), value: String(stats.total_parts), color: "text-amber-500" },
+    { icon: Car, label: t("admin.stats.vehicles"), value: String(stats.total_vehicles), color: "text-violet-500" },
+    { icon: ShoppingBag, label: t("admin.stats.sales"), value: String(stats.total_sales), color: "text-cyan-500" },
     {
       icon: BarChart3,
-      label: "Ingresos (30 días)",
+      label: t("admin.stats.revenue30days"),
       value: `$${stats.total_revenue.toFixed(2)}`,
       color: "text-green-500",
     },
     {
       icon: CreditCard,
-      label: "Total Financiado",
+      label: t("admin.stats.totalFinanced"),
       value: `$${stats.total_financed.toFixed(2)}`,
       color: "text-purple-500",
     },
     {
       icon: Wallet,
-      label: "Línea de Crédito",
-      value: `$${stats.total_credit_limit.toFixed(2)} límite / $${stats.total_credit_available.toFixed(2)} disponible`,
+      label: t("admin.stats.creditLine"),
+      value: t("admin.stats.creditLineValue", undefined, { limit: stats.total_credit_limit.toFixed(2), available: stats.total_credit_available.toFixed(2) }),
       color: "text-blue-500",
     },
     {
       icon: TrendingUp,
-      label: "Financiamiento actual",
+      label: t("admin.stats.currentFinancing"),
       value: `$${stats.total_financing.toFixed(2)}`,
       color: "text-orange-500",
     },
@@ -290,6 +305,7 @@ function StatsTab() {
 function UsersTab() {
   const queryClient = useQueryClient();
   const { roles } = useAuth();
+  const { t } = useLocale();
   const isSuperadmin = roles.includes("SUPERADMIN");
   const [search, setSearch] = useState("");
   const {
@@ -311,6 +327,7 @@ function UsersTab() {
   const [confirmDeleteUser, setConfirmDeleteUser] = useState<AdminUser | null>(null);
   const [showDeleteError, setShowDeleteError] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [openOrdersWarning, setOpenOrdersWarning] = useState<{ id: string; count: number } | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<SuperadminCreateUserInput>({
     email: "",
@@ -329,10 +346,10 @@ function UsersTab() {
     mutationFn: ({ id, force }: { id: string; force?: boolean }) => adminDeleteUser(id, force),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      toast.success("Usuario eliminado");
+      toast.success(t("admin.users.userDeleted"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? "Error al eliminar";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
       toast.error(msg);
     },
   });
@@ -341,11 +358,7 @@ function UsersTab() {
     try {
       const { open_orders } = await adminGetOpenOrders("users", id);
       if (open_orders > 0) {
-        const ok = confirm(
-          `Este usuario tiene ${open_orders} orden(es) activa(s). Al eliminarlo, se cancelarán todas sus órdenes y se eliminarán sus datos.\n\n¿Deseas continuar?`
-        );
-        if (!ok) return;
-        deleteMutation.mutate({ id, force: true });
+        setOpenOrdersWarning({ id, count: open_orders });
         return;
       }
     } catch {
@@ -357,13 +370,13 @@ function UsersTab() {
   const createUserMutation = useMutation({
     mutationFn: (input: SuperadminCreateUserInput) => adminCreateUser(input),
     onSuccess: () => {
-      toast.success("Usuario creado exitosamente");
+      toast.success(t("admin.users.userCreated"));
       setShowCreateForm(false);
       setCreateForm({ email: "", password: "", first_name: "", last_name: "", ci: "", phone: "+58", role: "CLIENT", credit_level: 1, parts_credit_limit: 150, service_credit_limit: 50 });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error al crear usuario");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.users.errorCreating"));
     },
   });
 
@@ -408,7 +421,7 @@ function UsersTab() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, email o CI..."
+            placeholder={t("admin.users.searchPlaceholder")}
             className="ml-input pl-9"
           />
         </div>
@@ -419,7 +432,7 @@ function UsersTab() {
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <UserPlus className="h-4 w-4" />
-            Nuevo usuario
+            {t("admin.users.newUser")}
           </button>
         )}
       </div>
@@ -428,7 +441,7 @@ function UsersTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Crear nuevo usuario</h3>
+              <h3 className="text-lg font-semibold">{t("admin.users.createNewUser")}</h3>
               <button onClick={() => setShowCreateForm(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
@@ -436,35 +449,35 @@ function UsersTab() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Nombre</label>
-                  <input type="text" value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} placeholder="Nombre" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.users.firstName")}</label>
+                  <input type="text" value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} placeholder={t("admin.users.firstName")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Apellido</label>
-                  <input type="text" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} placeholder="Apellido" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.users.lastName")}</label>
+                  <input type="text" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} placeholder={t("admin.users.lastName")} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.email")}</label>
                   <input type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="email@ejemplo.com" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Contraseña</label>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.users.password")}</label>
                   <input type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="********" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">CI</label>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.ci")}</label>
                   <input type="text" value={createForm.ci} onChange={(e) => setCreateForm({ ...createForm, ci: e.target.value })} placeholder="V-12345678" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Teléfono</label>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.phone")}</label>
                   <input type="text" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="+58412..." className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Rol</label>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">{t("admin.users.role")}</label>
                   <select value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as SuperadminCreateUserInput["role"] })} className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
-                    <option value="CLIENT">Cliente</option>
-                    <option value="WORKSHOP_OWNER">Dueño de Taller</option>
-                    <option value="ADMIN">Admin</option>
+                    <option value="CLIENT">{t("admin.users.roleClient")}</option>
+                    <option value="WORKSHOP_OWNER">{t("admin.users.roleWorkshopOwner")}</option>
+                    {isSuperadmin && <option value="ADMIN">{t("admin.users.roleAdmin")}</option>}
                   </select>
                 </div>
               </div>
@@ -475,10 +488,10 @@ function UsersTab() {
                   className="ml-btn ml-btn-primary flex-1"
                 >
                   {createUserMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Crear usuario
+                  {t("admin.users.createUser")}
                 </button>
                 <button onClick={() => setShowCreateForm(false)} className="ml-btn ml-btn-outline flex-1">
-                  Cancelar
+                  {t("admin.cancel")}
                 </button>
               </div>
             </div>
@@ -490,12 +503,11 @@ function UsersTab() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Nombre</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">CI</th>
-              <th className="px-4 py-3 font-medium">Roles</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium">Registro</th>
+              <th className="px-4 py-3 font-medium">{t("admin.name")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.email")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.ci")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.users.roles")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.status")}</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -517,7 +529,7 @@ function UsersTab() {
                         key={r}
                         className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
                       >
-                        {r === "ADMIN" ? "Admin" : r === "WORKSHOP_OWNER" ? "Taller" : "Cliente"}
+                        {r === "ADMIN" ? t("admin.users.roleAdmin") : r === "SUPERADMIN" ? t("admin.users.roleSuperadmin") : r === "WORKSHOP_OWNER" ? t("admin.users.roleWorkshopOwner") : t("admin.users.roleClient")}
                       </span>
                     ))}
                   </div>
@@ -526,12 +538,12 @@ function UsersTab() {
                   {u.is_suspended ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-400">
                       <Ban className="h-3 w-3" />
-                      Suspendido
+                      {t("admin.suspended")}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
                       <CheckCircle className="h-3 w-3" />
-                      Activo
+                      {t("admin.active")}
                     </span>
                   )}
                 </td>
@@ -543,21 +555,21 @@ function UsersTab() {
                     <button
                       onClick={() => setConfirmSuspendUser(u)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-amber-500/10 hover:text-amber-400"
-                      title={u.is_suspended ? "Restaurar" : "Suspender"}
+                      title={u.is_suspended ? t("admin.users.restore") : t("admin.users.suspend")}
                     >
                       {u.is_suspended ? <Check className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                     </button>
                     <button
                       onClick={() => openEdit(u)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                      title="Editar"
+                      title={t("admin.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => setConfirmDeleteUser(u)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Eliminar"
+                      title={t("admin.delete")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -573,7 +585,7 @@ function UsersTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Editar Usuario</h3>
+              <h3 className="text-lg font-semibold">{t("admin.users.editUser")}</h3>
               <button
                 onClick={() => setEditingUser(null)}
                 className="cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground"
@@ -594,7 +606,7 @@ function UsersTab() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Apellido
+                  {t("admin.users.lastName")}
                 </label>
                 <input
                   className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -604,7 +616,7 @@ function UsersTab() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Teléfono
+                  {t("admin.phone")}
                 </label>
                 <input
                   className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -615,10 +627,10 @@ function UsersTab() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Roles
+                  {t("admin.users.roles")}
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {["CLIENT", "WORKSHOP_OWNER"].map((role) => (
+                  {(isSuperadmin ? ["CLIENT", "WORKSHOP_OWNER", "ADMIN"] : ["CLIENT", "WORKSHOP_OWNER"]).map((role) => (
                     <label
                       key={role}
                       className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
@@ -634,10 +646,10 @@ function UsersTab() {
                         className="hidden"
                       />
                       {role === "ADMIN"
-                        ? "Admin"
+                        ? t("admin.users.roleAdmin")
                         : role === "WORKSHOP_OWNER"
-                          ? "Dueño de Taller"
-                          : "Cliente"}
+                          ? t("admin.users.roleWorkshopOwner")
+                          : t("admin.users.roleClient")}
                     </label>
                   ))}
                 </div>
@@ -645,12 +657,12 @@ function UsersTab() {
             </div>
             {updateMutation.isError && (
               <p className="mt-3 text-xs text-destructive">
-                {(updateMutation.error as any)?.response?.data?.detail ?? "Error al actualizar"}
+                {(updateMutation.error as any)?.response?.data?.detail ?? t("admin.users.errorUpdating")}
               </p>
             )}
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setEditingUser(null)} className="ml-btn ml-btn-outline">
-                Cancelar
+                {t("admin.cancel")}
               </button>
               <button
                 onClick={() => {
@@ -679,7 +691,7 @@ function UsersTab() {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Guardar
+                {t("admin.save")}
               </button>
             </div>
           </div>
@@ -691,13 +703,13 @@ function UsersTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmSuspendUser(null);
         }}
-        title={confirmSuspendUser?.is_suspended ? "Restaurar usuario" : "Suspender usuario"}
+        title={confirmSuspendUser?.is_suspended ? t("admin.users.restoreUser") : t("admin.users.suspendUser")}
         description={
           confirmSuspendUser?.is_suspended
-            ? "¿Restaurar este usuario? Volverá a tener acceso a la plataforma."
-            : "¿Suspender este usuario? No podrá acceder a la plataforma."
+            ? t("admin.users.restoreConfirm")
+            : t("admin.users.suspendConfirm")
         }
-        confirmText={confirmSuspendUser?.is_suspended ? "Restaurar" : "Suspender"}
+        confirmText={confirmSuspendUser?.is_suspended ? t("admin.users.restore") : t("admin.users.suspend")}
         onConfirm={() => {
           if (confirmSuspendUser) {
             updateMutation.mutate({
@@ -714,9 +726,9 @@ function UsersTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteUser(null);
         }}
-        title="Eliminar usuario"
-        description="¿Eliminar este usuario? Se cancelarán órdenes activas y se eliminarán todos sus datos. Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        title={t("admin.users.deleteUser")}
+        description={t("admin.users.deleteConfirm")}
+        confirmText={t("admin.delete")}
         onConfirm={() => {
           if (confirmDeleteUser) {
             deleteUser(confirmDeleteUser.id);
@@ -734,9 +746,44 @@ function UsersTab() {
               setDeleteError("");
             }
           }}
-          title="No se puede eliminar"
+          title={t("admin.cannotDelete")}
           description={deleteError}
         />
+      )}
+
+      {openOrdersWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-400" />
+              <h2 className="text-lg font-semibold tracking-tight">{t("admin.users.deleteUser")}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {t("admin.users.hasOpenOrdersDesc", undefined, { n: openOrdersWarning.count })}
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOpenOrdersWarning(null)}
+                className="ml-btn ml-btn-outline"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteMutation.mutate({ id: openOrdersWarning.id, force: true });
+                  setOpenOrdersWarning(null);
+                }}
+                disabled={deleteMutation.isPending}
+                className="ml-btn ml-btn-primary bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("admin.delete")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -746,6 +793,7 @@ function UsersTab() {
 
 function WorkshopsTab() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const {
     data: workshops,
@@ -765,6 +813,7 @@ function WorkshopsTab() {
   const [confirmDeleteWorkshop, setConfirmDeleteWorkshop] = useState<AdminWorkshop | null>(null);
   const [showDeleteError, setShowDeleteError] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [openOrdersWarningW, setOpenOrdersWarningW] = useState<{ id: string; count: number } | null>(null);
 
   const toggleCertify = useMutation({
     mutationFn: ({ id, is_certified }: { id: string; is_certified: number }) =>
@@ -791,10 +840,10 @@ function WorkshopsTab() {
     mutationFn: ({ id, force }: { id: string; force?: boolean }) => adminDeleteWorkshop(id, force),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-workshops"] });
-      toast.success("Taller eliminado");
+      toast.success(t("admin.workshops.workshopDeleted"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? "Error al eliminar";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
       toast.error(msg);
     },
   });
@@ -803,11 +852,7 @@ function WorkshopsTab() {
     try {
       const { open_orders } = await adminGetOpenOrders("workshops", id);
       if (open_orders > 0) {
-        const ok = confirm(
-          `Este taller tiene ${open_orders} orden(es) activa(s). Al eliminarlo, se cancelarán todas sus órdenes y se eliminarán repuestos y servicios.\n\n¿Deseas continuar?`
-        );
-        if (!ok) return;
-        deleteMutation.mutate({ id, force: true });
+        setOpenOrdersWarningW({ id, count: open_orders });
         return;
       }
     } catch {
@@ -840,7 +885,7 @@ function WorkshopsTab() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, RIF o dueño..."
+            placeholder={t("admin.workshops.searchPlaceholder")}
             className="ml-input pl-9"
           />
         </div>
@@ -850,10 +895,10 @@ function WorkshopsTab() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Nombre</th>
-              <th className="px-4 py-3 font-medium">RIF</th>
-              <th className="px-4 py-3 font-medium">Dueño</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3 font-medium">{t("admin.name")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.workshops.rif")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.workshops.owner")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.status")}</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -875,11 +920,11 @@ function WorkshopsTab() {
                           : "border border-amber-500/30 bg-amber-500/10 text-amber-400"
                       }`}
                     >
-                      {w.is_certified ? "Certificado" : "Pendiente"}
+                      {w.is_certified ? t("admin.certified") : t("admin.notCertified")}
                     </span>
                     {w.is_suspended ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-red-400">
-                        Fuera de servicio
+                        {t("admin.outOfService")}
                       </span>
                     ) : null}
                   </div>
@@ -889,7 +934,7 @@ function WorkshopsTab() {
                     <button
                       onClick={() => openEdit(w)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                      title="Editar"
+                      title={t("admin.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -905,7 +950,7 @@ function WorkshopsTab() {
                           ? "text-amber-500 hover:bg-amber-500/10"
                           : "text-emerald-500 hover:bg-emerald-500/10"
                       }`}
-                      title={w.is_certified ? "Revocar certificación" : "Certificar"}
+                      title={w.is_certified ? t("admin.workshops.revokeCert") : t("admin.workshops.certify")}
                     >
                       <ShieldCheck className="h-4 w-4" />
                     </button>
@@ -916,14 +961,14 @@ function WorkshopsTab() {
                           ? "text-emerald-500 hover:bg-emerald-500/10"
                           : "text-red-500 hover:bg-red-500/10"
                       }`}
-                      title={w.is_suspended ? "Reactivar taller" : "Suspender taller"}
+                      title={w.is_suspended ? t("admin.workshops.reactivate") : t("admin.workshops.suspend")}
                     >
                       {w.is_suspended ? <Check className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                     </button>
                     <button
                       onClick={() => setConfirmDeleteWorkshop(w)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Eliminar"
+                      title={t("admin.delete")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -939,7 +984,7 @@ function WorkshopsTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Editar Taller</h3>
+              <h3 className="text-lg font-semibold">{t("admin.workshops.editWorkshop")}</h3>
               <button
                 onClick={() => setEditingWorkshop(null)}
                 className="cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground"
@@ -950,7 +995,7 @@ function WorkshopsTab() {
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Nombre
+                  {t("admin.name")}
                 </label>
                 <input
                   className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -959,7 +1004,7 @@ function WorkshopsTab() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">RIF</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.workshops.rif")}</label>
                 <input
                   className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
                   value={editRif}
@@ -968,7 +1013,7 @@ function WorkshopsTab() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Dirección
+                  {t("admin.workshops.address")}
                 </label>
                 <input
                   className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -979,7 +1024,7 @@ function WorkshopsTab() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setEditingWorkshop(null)} className="ml-btn ml-btn-outline">
-                Cancelar
+                {t("admin.cancel")}
               </button>
               <button
                 onClick={() => {
@@ -1002,7 +1047,7 @@ function WorkshopsTab() {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Guardar
+                {t("admin.save")}
               </button>
             </div>
           </div>
@@ -1014,13 +1059,13 @@ function WorkshopsTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmSuspendWorkshop(null);
         }}
-        title={confirmSuspendWorkshop?.is_suspended ? "Reactivar taller" : "Suspender taller"}
+        title={confirmSuspendWorkshop?.is_suspended ? t("admin.workshops.reactivate") : t("admin.workshops.suspend")}
         description={
           confirmSuspendWorkshop?.is_suspended
-            ? "¿Reactivar este taller? Volverá a aparecer en la red de talleres."
-            : "¿Suspender este taller? No podrá recibir nuevas compras ni solicitudes de servicio, pero las órdenes abiertas seguirán activas."
+            ? t("admin.workshops.reactivateConfirm")
+            : t("admin.workshops.suspendConfirm")
         }
-        confirmText={confirmSuspendWorkshop?.is_suspended ? "Reactivar" : "Suspender"}
+        confirmText={confirmSuspendWorkshop?.is_suspended ? t("admin.workshops.reactivate") : t("admin.workshops.suspend")}
         onConfirm={() => {
           if (confirmSuspendWorkshop) {
             toggleSuspend.mutate({
@@ -1037,9 +1082,9 @@ function WorkshopsTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteWorkshop(null);
         }}
-        title="Eliminar taller"
-        description="¿Eliminar este taller? Se eliminarán todos sus repuestos y servicios. Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        title={t("admin.workshops.deleteWorkshop")}
+        description={t("admin.workshops.deleteConfirm")}
+        confirmText={t("admin.delete")}
         onConfirm={() => {
           if (confirmDeleteWorkshop) {
             deleteWorkshop(confirmDeleteWorkshop.id);
@@ -1056,9 +1101,44 @@ function WorkshopsTab() {
               setDeleteError("");
             }
           }}
-          title="No se puede eliminar"
+          title={t("admin.cannotDelete")}
           description={deleteError}
         />
+      )}
+
+      {openOrdersWarningW && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-400" />
+              <h2 className="text-lg font-semibold tracking-tight">{t("admin.workshops.deleteWorkshop")}</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {t("admin.workshops.hasOpenOrdersDesc", undefined, { n: openOrdersWarningW.count })}
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOpenOrdersWarningW(null)}
+                className="ml-btn ml-btn-outline"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteMutation.mutate({ id: openOrdersWarningW.id, force: true });
+                  setOpenOrdersWarningW(null);
+                }}
+                disabled={deleteMutation.isPending}
+                className="ml-btn ml-btn-primary bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {t("admin.delete")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -1068,6 +1148,7 @@ function WorkshopsTab() {
 
 function PartsTab() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const {
     data: parts,
@@ -1106,10 +1187,10 @@ function PartsTab() {
     mutationFn: (id: string) => adminDeletePart(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-parts"] });
-      toast.success("Repuesto eliminado");
+      toast.success(t("admin.parts.partDeleted"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? "Error al eliminar";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
       toast.error(msg);
     },
   });
@@ -1143,7 +1224,7 @@ function PartsTab() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o taller..."
+            placeholder={t("admin.parts.searchPlaceholder")}
             className="ml-input pl-9"
           />
         </div>
@@ -1153,11 +1234,11 @@ function PartsTab() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Nombre</th>
-              <th className="px-4 py-3 font-medium">Precio</th>
-              <th className="px-4 py-3 font-medium">Stock</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium">Taller</th>
+              <th className="px-4 py-3 font-medium">{t("admin.name")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.parts.price")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.parts.stock")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.status")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.parts.workshop")}</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -1174,7 +1255,7 @@ function PartsTab() {
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.is_active ? "text-emerald-400" : "text-muted-foreground"}`}
                   >
-                    {p.is_active ? "Activo" : "Inactivo"}
+                    {p.is_active ? t("admin.active") : t("admin.inactive")}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{p.workshop_name}</td>
@@ -1183,7 +1264,7 @@ function PartsTab() {
                     <button
                       onClick={() => openEditPart(p)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                      title="Editar"
+                      title={t("admin.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -1205,7 +1286,7 @@ function PartsTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Editar Repuesto</h3>
+              <h3 className="text-lg font-semibold">{t("admin.parts.editPart")}</h3>
               <button
                 onClick={() => setEditingPart(null)}
                 className="cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground"
@@ -1216,7 +1297,7 @@ function PartsTab() {
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Nombre
+                  {t("admin.name")}
                 </label>
                 <input
                   className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -1227,7 +1308,7 @@ function PartsTab() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Precio
+                    {t("admin.parts.price")}
                   </label>
                   <input
                     type="number"
@@ -1240,7 +1321,7 @@ function PartsTab() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Stock
+                    {t("admin.parts.stock")}
                   </label>
                   <input
                     type="number"
@@ -1259,13 +1340,13 @@ function PartsTab() {
                     onChange={(e) => setEditPartActive(e.target.checked ? 1 : 0)}
                     className="rounded border-border"
                   />
-                  Activo
+                  {t("admin.active")}
                 </label>
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setEditingPart(null)} className="ml-btn ml-btn-outline">
-                Cancelar
+                {t("admin.cancel")}
               </button>
               <button
                 onClick={() => {
@@ -1288,7 +1369,7 @@ function PartsTab() {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Guardar
+                {t("admin.save")}
               </button>
             </div>
           </div>
@@ -1300,9 +1381,9 @@ function PartsTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmDeletePart(null);
         }}
-        title="Eliminar repuesto"
-        description="¿Eliminar este repuesto? No afectará las órdenes activas que lo incluyan."
-        confirmText="Eliminar"
+        title={t("admin.parts.deletePart")}
+        description={t("admin.parts.deleteConfirm")}
+        confirmText={t("admin.delete")}
         onConfirm={() => {
           if (confirmDeletePart) {
             deletePart(confirmDeletePart.id);
@@ -1320,7 +1401,7 @@ function PartsTab() {
               setDeleteError("");
             }
           }}
-          title="No se puede eliminar"
+          title={t("admin.cannotDelete")}
           description={deleteError}
         />
       )}
@@ -1332,6 +1413,7 @@ function PartsTab() {
 
 function VehiclesTab() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const {
     data: vehicles,
@@ -1375,10 +1457,10 @@ function VehiclesTab() {
     mutationFn: (id: string) => adminDeleteVehicle(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-vehicles"] });
-      toast.success("Vehículo eliminado");
+      toast.success(t("admin.vehicles.vehicleDeleted"));
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? "Error al eliminar";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
       toast.error(msg);
     },
   });
@@ -1387,7 +1469,7 @@ function VehiclesTab() {
     try {
       const { open_orders } = await adminGetOpenOrders("vehicles", id);
       if (open_orders > 0) {
-        toast.error("No se puede eliminar el vehículo porque tiene órdenes activas.");
+        toast.error(t("admin.vehicles.hasOpenOrders"));
         return;
       }
     } catch {
@@ -1422,7 +1504,7 @@ function VehiclesTab() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por marca, modelo o placa..."
+            placeholder={t("admin.vehicles.searchPlaceholder")}
             className="ml-input pl-9"
           />
         </div>
@@ -1432,12 +1514,12 @@ function VehiclesTab() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Dueño</th>
-              <th className="px-4 py-3 font-medium">Marca</th>
-              <th className="px-4 py-3 font-medium">Modelo</th>
-              <th className="px-4 py-3 font-medium">Año</th>
-              <th className="px-4 py-3 font-medium">Placa</th>
-              <th className="px-4 py-3 font-medium">Tipo</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.owner")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.brand")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.model")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.year")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.plate")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.type")}</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -1457,7 +1539,7 @@ function VehiclesTab() {
                 <td className="px-4 py-3 text-muted-foreground">{v.license_plate}</td>
                 <td className="px-4 py-3">
                   <span className="rounded-full border border-border px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    {v.vehicle_type === "CAR" ? "Auto" : "Moto"}
+                    {v.vehicle_type === "CAR" ? t("admin.vehicles.car") : t("admin.vehicles.motorcycle")}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -1465,7 +1547,7 @@ function VehiclesTab() {
                     <button
                       onClick={() => openEditVehicle(v)}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                      title="Editar"
+                      title={t("admin.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -1487,7 +1569,7 @@ function VehiclesTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Editar Vehículo</h3>
+              <h3 className="text-lg font-semibold">{t("admin.vehicles.editVehicle")}</h3>
               <button
                 onClick={() => setEditingVehicle(null)}
                 className="cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground"
@@ -1499,7 +1581,7 @@ function VehiclesTab() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Marca
+                    {t("admin.vehicles.brand")}
                   </label>
                   <input
                     className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -1509,7 +1591,7 @@ function VehiclesTab() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Modelo
+                    {t("admin.vehicles.model")}
                   </label>
                   <input
                     className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -1521,7 +1603,7 @@ function VehiclesTab() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Año
+                    {t("admin.vehicles.year")}
                   </label>
                   <input
                     type="number"
@@ -1534,7 +1616,7 @@ function VehiclesTab() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Placa
+                    {t("admin.vehicles.plate")}
                   </label>
                   <input
                     className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
@@ -1544,13 +1626,13 @@ function VehiclesTab() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.vehicles.type")}</label>
                 <div className="flex gap-2">
-                  {(["CAR", "MOTORCYCLE"] as const).map((t) => (
+                  {(["CAR", "MOTORCYCLE"] as const).map((vt) => (
                     <label
-                      key={t}
+                      key={vt}
                       className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                        editVType === t
+                        editVType === vt
                           ? "border-primary bg-primary/15 text-primary"
                           : "border-border text-muted-foreground hover:text-foreground"
                       }`}
@@ -1558,11 +1640,11 @@ function VehiclesTab() {
                       <input
                         type="radio"
                         name="vtype"
-                        checked={editVType === t}
-                        onChange={() => setEditVType(t)}
+                        checked={editVType === vt}
+                        onChange={() => setEditVType(vt)}
                         className="hidden"
                       />
-                      {t === "CAR" ? "Auto" : "Moto"}
+                      {vt === "CAR" ? t("admin.vehicles.car") : t("admin.vehicles.motorcycle")}
                     </label>
                   ))}
                 </div>
@@ -1570,7 +1652,7 @@ function VehiclesTab() {
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setEditingVehicle(null)} className="ml-btn ml-btn-outline">
-                Cancelar
+                {t("admin.cancel")}
               </button>
               <button
                 onClick={() => {
@@ -1595,7 +1677,7 @@ function VehiclesTab() {
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Guardar
+                {t("admin.save")}
               </button>
             </div>
           </div>
@@ -1607,9 +1689,9 @@ function VehiclesTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteVehicle(null);
         }}
-        title="Eliminar vehículo"
-        description="¿Eliminar este vehículo? No podrá eliminarse si tiene órdenes abiertas."
-        confirmText="Eliminar"
+        title={t("admin.vehicles.deleteVehicle")}
+        description={t("admin.vehicles.deleteConfirm")}
+        confirmText={t("admin.delete")}
         onConfirm={() => {
           if (confirmDeleteVehicle) {
             deleteVehicle(confirmDeleteVehicle.id);
@@ -1627,7 +1709,7 @@ function VehiclesTab() {
               setDeleteError("");
             }
           }}
-          title="No se puede eliminar"
+          title={t("admin.cannotDelete")}
           description={deleteError}
         />
       )}
@@ -1640,9 +1722,11 @@ function VehiclesTab() {
 function OrdersTab() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [confirmDeleteOrder, setConfirmDeleteOrder] = useState<AdminOrder | null>(null);
+  const [confirmForceClose, setConfirmForceClose] = useState<AdminOrder | null>(null);
   const { roles } = useAuth();
   const isSuperadmin = roles.includes("SUPERADMIN");
   const {
@@ -1659,11 +1743,24 @@ function OrdersTab() {
     mutationFn: (id: string) => adminDeleteOrder(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      toast.success("Orden eliminada");
+      toast.success(t("admin.orders.orderDeleted"));
       setConfirmDeleteOrder(null);
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? "Error al eliminar";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
+      toast.error(msg);
+    },
+  });
+
+  const forceCloseMutation = useMutation({
+    mutationFn: (id: string) => adminForceCloseOrder(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      toast.success(t("admin.orders.orderForceClosed"));
+      setConfirmForceClose(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
       toast.error(msg);
     },
   });
@@ -1687,7 +1784,7 @@ function OrdersTab() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por ID, comprador o taller..."
+          placeholder={t("admin.orders.searchPlaceholder")}
           className="ml-input"
         />
         <select
@@ -1695,9 +1792,9 @@ function OrdersTab() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="ml-input px-3 py-2 pr-8"
         >
-          <option value="">Todos los estados</option>
-          <option value="PENDING">Pendiente</option>
-          <option value="CLOSED">Cerrada</option>
+          <option value="">{t("admin.orders.allStatuses")}</option>
+          <option value="PENDING">{t("admin.orders.pending")}</option>
+          <option value="CLOSED">{t("admin.orders.closed")}</option>
         </select>
         {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
@@ -1705,13 +1802,13 @@ function OrdersTab() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">Comprador</th>
-              <th className="px-4 py-3 font-medium">Taller</th>
-              <th className="px-4 py-3 font-medium">Total</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium">Pago</th>
-              <th className="px-4 py-3 font-medium">Fecha</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.id")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.buyer")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.workshop")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.total")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.status")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.payment")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.date")}</th>
               {isSuperadmin && <th className="px-4 py-3 font-medium" />}
             </tr>
           </thead>
@@ -1743,16 +1840,16 @@ function OrdersTab() {
                         : "border border-amber-500/30 bg-amber-500/10 text-amber-400"
                     }`}
                   >
-                    {o.status === "CLOSED" ? "Cerrado" : "Pendiente"}
+                    {o.status === "CLOSED" ? t("admin.orders.closedBadge") : t("admin.orders.pending")}
                   </span>
                   {o.status !== "CLOSED" && o.installments_pending_verification > 0 && (
                     <p className="mt-1 text-[10px] text-amber-400">
-                      {o.installments_pending_verification} por verificar
+                      {t("admin.orders.pendingVerification", undefined, { n: o.installments_pending_verification })}
                     </p>
                   )}
                   {o.status !== "CLOSED" && o.installments_pending > 0 && o.installments_pending_verification === 0 && (
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      {o.installments_pending} cuota{o.installments_pending > 1 ? "s" : ""} pendiente{o.installments_pending > 1 ? "s" : ""}
+                      {t("admin.orders.pendingInstallments", undefined, { n: o.installments_pending, s: o.installments_pending > 1 ? "s" : "" })}
                     </p>
                   )}
                 </td>
@@ -1764,15 +1861,15 @@ function OrdersTab() {
                         : "border border-blue-500/30 bg-blue-500/10 text-blue-400"
                     }`}
                   >
-                    {o.payment_type === "FINANCIADO" ? "Financiado" : "Contado"}
+                    {o.payment_type === "FINANCIADO" ? t("admin.orders.financed") : t("admin.orders.cash")}
                   </span>
                   {o.installments_paid === o.installment_count && o.installment_count > 0 ? (
-                    <p className="mt-1 text-[10px] text-emerald-400">Pagado</p>
+                    <p className="mt-1 text-[10px] text-emerald-400">{t("admin.orders.paid")}</p>
                   ) : o.installments_pending_verification > 0 ? (
-                    <p className="mt-1 text-[10px] text-amber-400">Por verificar</p>
+                    <p className="mt-1 text-[10px] text-amber-400">{t("admin.orders.toVerify")}</p>
                   ) : (
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      {o.installments_paid}/{o.installment_count} pagadas
+                      {t("admin.orders.installmentsPaid", undefined, { paid: o.installments_paid, total: o.installment_count })}
                     </p>
                   )}
                 </td>
@@ -1781,16 +1878,29 @@ function OrdersTab() {
                 </td>
                 {isSuperadmin && (
                   <td className="px-4 py-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDeleteOrder(o);
-                      }}
-                      className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Eliminar orden"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {o.status !== "CLOSED" ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmForceClose(o);
+                        }}
+                        className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-emerald-500/10 hover:text-emerald-400"
+                        title={t("admin.orders.forceClose")}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteOrder(o);
+                        }}
+                        className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title={t("admin.orders.deleteOrder")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -1798,7 +1908,7 @@ function OrdersTab() {
             {(!orders || orders.length === 0) && (
               <tr>
                 <td colSpan={isSuperadmin ? 8 : 7} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No hay órdenes registradas
+                  {t("admin.orders.noOrders")}
                 </td>
               </tr>
             )}
@@ -1811,12 +1921,27 @@ function OrdersTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteOrder(null);
         }}
-        title="Eliminar orden"
-        description="¿Eliminar esta orden permanentemente? Se eliminarán cuotas, pagos y transacciones asociadas. Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        title={t("admin.orders.deleteOrderTitle")}
+        description={t("admin.orders.deleteConfirm")}
+        confirmText={t("admin.delete")}
         onConfirm={() => {
           if (confirmDeleteOrder) {
             deleteOrderMutation.mutate(confirmDeleteOrder.id);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!confirmForceClose}
+        onOpenChange={(open) => {
+          if (!open) setConfirmForceClose(null);
+        }}
+        title={t("admin.orders.forceCloseTitle")}
+        description={t("admin.orders.forceCloseConfirm")}
+        confirmText={t("admin.orders.forceClose")}
+        onConfirm={() => {
+          if (confirmForceClose) {
+            forceCloseMutation.mutate(confirmForceClose.id);
           }
         }}
       />
@@ -1825,22 +1950,6 @@ function OrdersTab() {
 }
 
 // ---- Service Orders Tab ----
-
-const SERVICE_ORDER_LABELS: Record<string, string> = {
-  PENDING: "Pendiente",
-  REVISION_SENT: "Revisión enviada",
-  AT_WORKSHOP: "Esperando en taller",
-  QUOTED: "Presupuesto enviado",
-  ACCEPTED: "Aceptado",
-  REJECTED: "Rechazado",
-  IN_PROGRESS: "En servicio",
-  COMPLETED: "Listo para retirar",
-  SHIPPED: "Enviado",
-  DELIVERED: "Entregado",
-  CLOSED: "Cerrada",
-  DROPPED_OFF: "Entregado en el taller",
-  CANCELLED: "Cancelado",
-};
 
 const SERVICE_ORDER_STYLES: Record<string, string> = {
   PENDING: "border border-amber-500/30 bg-amber-500/10 text-amber-400",
@@ -1861,6 +1970,7 @@ const SERVICE_ORDER_STYLES: Record<string, string> = {
 function ServiceOrdersTab() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [confirmCancelServiceOrder, setConfirmCancelServiceOrder] =
@@ -1891,11 +2001,11 @@ function ServiceOrdersTab() {
     mutationFn: (id: string) => adminDeleteServiceOrder(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-service-orders"] });
-      toast.success("Orden de servicio eliminada");
+      toast.success(t("admin.serviceOrders.orderDeleted"));
       setConfirmDeleteServiceOrder(null);
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? "Error al eliminar";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.detail ?? t("admin.errorDeleting");
       toast.error(msg);
     },
   });
@@ -1917,7 +2027,7 @@ function ServiceOrdersTab() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por servicio, taller, vehículo o propietario..."
+            placeholder={t("admin.serviceOrders.searchPlaceholder")}
             className="ml-input pl-9"
           />
         </div>
@@ -1926,9 +2036,9 @@ function ServiceOrdersTab() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="ml-input px-3 py-2 pr-8"
         >
-          <option value="">Todos los estados</option>
-          <option value="activo">Activo</option>
-          <option value="finalizado">Finalizado</option>
+          <option value="">{t("admin.serviceOrders.allStatuses")}</option>
+          <option value="activo">{t("admin.serviceOrders.active")}</option>
+          <option value="finalizado">{t("admin.serviceOrders.finished")}</option>
         </select>
         {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
@@ -1936,14 +2046,14 @@ function ServiceOrdersTab() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">ID</th>
-              <th className="px-4 py-3 font-medium">Servicio</th>
-              <th className="px-4 py-3 font-medium">Taller</th>
-              <th className="px-4 py-3 font-medium">Vehículo</th>
-              <th className="px-4 py-3 font-medium">Propietario</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium">Precio</th>
-              <th className="px-4 py-3 font-medium">Fecha</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.id")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.serviceOrders.service")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.workshop")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.vehicles.vehicle")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.serviceOrders.owner")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.status")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.serviceOrders.price")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.orders.date")}</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -1976,7 +2086,7 @@ function ServiceOrdersTab() {
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${SERVICE_ORDER_STYLES[o.status] || SERVICE_ORDER_STYLES.PENDING}`}
                   >
-                    {SERVICE_ORDER_LABELS[o.status] ?? o.status}
+                    {t(`admin.serviceOrders.statusLabels.${o.status}`, o.status)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
@@ -1993,7 +2103,7 @@ function ServiceOrdersTab() {
                         setConfirmCancelServiceOrder(o);
                       }}
                       className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Cancelar orden"
+                      title={t("admin.serviceOrders.cancelOrder")}
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -2005,7 +2115,7 @@ function ServiceOrdersTab() {
                         setConfirmDeleteServiceOrder(o);
                       }}
                       className="ml-1 cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      title="Eliminar orden"
+                      title={t("admin.serviceOrders.deleteOrder")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -2016,7 +2126,7 @@ function ServiceOrdersTab() {
             {(!orders || orders.length === 0) && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No hay órdenes de servicio registradas
+                  {t("admin.serviceOrders.noOrders")}
                 </td>
               </tr>
             )}
@@ -2029,12 +2139,12 @@ function ServiceOrdersTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmCancelServiceOrder(null);
         }}
-        title="Cancelar orden de servicio"
-        description="¿Cancelar esta orden de servicio? Esta acción no se puede deshacer."
-        confirmText="Cancelar orden"
+        title={t("admin.serviceOrders.cancelTitle")}
+        description={t("admin.serviceOrders.cancelConfirm")}
+        confirmText={t("admin.serviceOrders.cancelOrder")}
         onConfirm={() => {
           // Aquí irá la lógica para cancelar la orden de servicio
-          toast.info("Funcionalidad de cancelar orden de servicio próximamente");
+          toast.info(t("admin.serviceOrders.cancelSoon"));
           setConfirmCancelServiceOrder(null);
         }}
       />
@@ -2044,9 +2154,9 @@ function ServiceOrdersTab() {
         onOpenChange={(open) => {
           if (!open) setConfirmDeleteServiceOrder(null);
         }}
-        title="Eliminar orden de servicio"
-        description="¿Eliminar esta orden de servicio permanentemente? Se eliminarán pagos, cuotas y comisiones asociadas. Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        title={t("admin.serviceOrders.deleteTitle")}
+        description={t("admin.serviceOrders.deleteConfirm")}
+        confirmText={t("admin.delete")}
         onConfirm={() => {
           if (confirmDeleteServiceOrder) {
             deleteServiceOrderMutation.mutate(confirmDeleteServiceOrder.id);
@@ -2059,15 +2169,16 @@ function ServiceOrdersTab() {
 
 // ---- Earnings Tab ----
 
-const PERIOD_LABELS: Record<PeriodFilter, string> = {
-  month: "Último mes",
-  "3months": "Últimos 3 meses",
-  "6months": "Últimos 6 meses",
-  year: "Último año",
+const PERIOD_KEYS: Record<PeriodFilter, string> = {
+  month: "admin.earnings.periods.month",
+  "3months": "admin.earnings.periods.3months",
+  "6months": "admin.earnings.periods.6months",
+  year: "admin.earnings.periods.year",
 };
 
 function CreditTab() {
   const [creditSubTab, setCreditSubTab] = useState<"lines" | "requests">("lines");
+  const { t } = useLocale();
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 border-b border-border">
@@ -2079,7 +2190,7 @@ function CreditTab() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Líneas
+          {t("admin.credit.lines")}
         </button>
         <button
           onClick={() => setCreditSubTab("requests")}
@@ -2089,7 +2200,7 @@ function CreditTab() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Solicitudes
+          {t("admin.credit.requests")}
         </button>
       </div>
       {creditSubTab === "lines" ? <CreditLinesTable /> : <CreditRequestsTable />}
@@ -2098,6 +2209,7 @@ function CreditTab() {
 }
 
 function CreditLinesTable() {
+  const { t } = useLocale();
   const { data, isLoading, isFetching } = useQuery<AdminCreditLine[]>({
     queryKey: ["admin-credit-lines"],
     queryFn: adminGetCreditLines,
@@ -2116,12 +2228,12 @@ function CreditLinesTable() {
       input: { parts_credit_limit?: number };
     }) => adminUpdateCreditLine(userId, input),
     onSuccess: () => {
-      toast.success("Línea de crédito actualizada");
+      toast.success(t("admin.credit.lineUpdated"));
       setEditingUser(null);
       queryClient.invalidateQueries({ queryKey: ["admin-credit-lines"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? err?.message ?? "Error al actualizar");
+      toast.error(err?.response?.data?.message ?? err?.message ?? t("admin.credit.errorUpdating"));
     },
   });
 
@@ -2146,24 +2258,24 @@ function CreditLinesTable() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Líneas de Crédito</h2>
+        <h2 className="text-lg font-semibold">{t("admin.credit.creditLines")}</h2>
         {isFetching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Usuario</th>
-              <th className="px-4 py-3 font-medium">Nivel</th>
-              <th className="px-4 py-3 font-medium">Puntos</th>
-              <th className="px-4 py-3 font-medium">Límite Rep.</th>
-              <th className="px-4 py-3 font-medium">Disp. Rep.</th>
-              <th className="px-4 py-3 font-medium">Límite Svc.</th>
-              <th className="px-4 py-3 font-medium">Disp. Svc.</th>
-              <th className="px-4 py-3 font-medium">A tiempo</th>
-              <th className="px-4 py-3 font-medium">Atrasadas</th>
-              <th className="px-4 py-3 font-medium">Ajuste</th>
-              <th className="px-4 py-3 font-medium">Acciones</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.user")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.level")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.points")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.partsLimit")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.partsAvailable")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.serviceLimit")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.serviceAvailable")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.onTime")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.late")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.credit.adjustment")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -2205,7 +2317,7 @@ function CreditLinesTable() {
                     className="flex items-center gap-1 text-xs text-primary hover:underline"
                   >
                     <Pencil className="h-3 w-3" />
-                    Editar
+                    {t("admin.edit")}
                   </button>
                 </td>
               </tr>
@@ -2218,14 +2330,14 @@ function CreditLinesTable() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Editar Línea — {editingUser.user_name}</h3>
+              <h3 className="text-lg font-semibold">{t("admin.credit.editLine", undefined, { name: editingUser.user_name })}</h3>
               <button onClick={() => setEditingUser(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Límite de Repuestos ($)</label>
+                <label className="text-sm font-medium">{t("admin.credit.partsLimitLabel")}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -2234,7 +2346,7 @@ function CreditLinesTable() {
                   className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  El límite de servicios se calcula automáticamente: ${(editParts ? parseFloat(editParts) / 3 : 0).toFixed(2)}
+                  {t("admin.credit.serviceAutoCalc", undefined, { amount: (editParts ? parseFloat(editParts) / 3 : 0).toFixed(2) })}
                 </p>
               </div>
               <div className="flex justify-end gap-2">
@@ -2242,7 +2354,7 @@ function CreditLinesTable() {
                   onClick={() => setEditingUser(null)}
                   className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
                 >
-                  Cancelar
+                  {t("admin.cancel")}
                 </button>
                 <button
                   onClick={() => {
@@ -2254,7 +2366,7 @@ function CreditLinesTable() {
                   className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
                 >
                   {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Guardar
+                  {t("admin.save")}
                 </button>
               </div>
             </div>
@@ -2266,6 +2378,7 @@ function CreditLinesTable() {
 }
 
 function CreditRequestsTable() {
+  const { t } = useLocale();
   const { data: requests, isLoading } = useQuery<AdminLimitReview[]>({
     queryKey: ["admin-limit-requests"],
     queryFn: adminGetLimitRequests,
@@ -2284,13 +2397,13 @@ function CreditRequestsTable() {
       newPartsLimit: number;
     }) => adminReviewLimitRequest(requestId, "APPROVED", newPartsLimit),
     onSuccess: () => {
-      toast.success("Solicitud aprobada");
+      toast.success(t("admin.credit.requestApproved"));
       setApproving(null);
       queryClient.invalidateQueries({ queryKey: ["admin-limit-requests"] });
       queryClient.invalidateQueries({ queryKey: ["admin-credit-lines"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? err?.message ?? "Error al aprobar");
+      toast.error(err?.response?.data?.message ?? err?.message ?? t("admin.credit.errorApproving"));
     },
   });
 
@@ -2298,11 +2411,11 @@ function CreditRequestsTable() {
     mutationFn: (requestId: string) =>
       adminReviewLimitRequest(requestId, "REJECTED"),
     onSuccess: () => {
-      toast.success("Solicitud rechazada");
+      toast.success(t("admin.credit.requestRejected"));
       queryClient.invalidateQueries({ queryKey: ["admin-limit-requests"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? err?.message ?? "Error al rechazar");
+      toast.error(err?.response?.data?.message ?? err?.message ?? t("admin.credit.errorRejecting"));
     },
   });
 
@@ -2316,20 +2429,20 @@ function CreditRequestsTable() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Solicitudes de Revisión</h2>
+      <h2 className="text-lg font-semibold">{t("admin.credit.reviewRequests")}</h2>
       {!requests || requests.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          No hay solicitudes pendientes
+          {t("admin.credit.noRequests")}
         </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Usuario</th>
-                <th className="px-4 py-3 font-medium">Límite actual</th>
-                <th className="px-4 py-3 font-medium">Solicitó el</th>
-                <th className="px-4 py-3 font-medium">Acciones</th>
+                <th className="px-4 py-3 font-medium">{t("admin.credit.user")}</th>
+                <th className="px-4 py-3 font-medium">{t("admin.credit.currentLimit")}</th>
+                <th className="px-4 py-3 font-medium">{t("admin.credit.requestedOn")}</th>
+                <th className="px-4 py-3 font-medium">{t("admin.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -2358,11 +2471,11 @@ function CreditRequestsTable() {
                         className="flex items-center gap-1 text-xs text-emerald-400 hover:underline"
                       >
                         <Check className="h-3 w-3" />
-                        Aprobar
+                        {t("admin.credit.approve")}
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`¿Rechazar solicitud de ${r.user_name}?`)) {
+                          if (confirm(t("admin.credit.rejectConfirm", undefined, { name: r.user_name }))) {
                             rejectMutation.mutate(r.id);
                           }
                         }}
@@ -2370,7 +2483,7 @@ function CreditRequestsTable() {
                         className="flex items-center gap-1 text-xs text-red-400 hover:underline"
                       >
                         <X className="h-3 w-3" />
-                        Rechazar
+                        {t("admin.credit.reject")}
                       </button>
                     </div>
                   </td>
@@ -2386,7 +2499,7 @@ function CreditRequestsTable() {
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">
-                Aprobar — {approving.user_name}
+                {t("admin.credit.approveTitle", undefined, { name: approving.user_name })}
               </h3>
               <button
                 onClick={() => setApproving(null)}
@@ -2397,14 +2510,14 @@ function CreditRequestsTable() {
             </div>
             <div className="space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground">Límite actual</p>
+                <p className="text-xs text-muted-foreground">{t("admin.credit.currentLimit")}</p>
                 <p className="font-mono font-semibold">
                   ${approving.current_parts_limit.toFixed(2)}
                 </p>
               </div>
               <div>
                 <label className="text-sm font-medium">
-                  Nuevo límite de repuestos ($)
+                  {t("admin.credit.newPartsLimit")}
                 </label>
                 <input
                   type="number"
@@ -2414,7 +2527,7 @@ function CreditRequestsTable() {
                   className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Servicio auto: ${(parseFloat(newLimit || "0") / 3).toFixed(2)}
+                  {t("admin.credit.serviceAuto", undefined, { amount: (parseFloat(newLimit || "0") / 3).toFixed(2) })}
                 </p>
               </div>
               <div className="flex justify-end gap-2">
@@ -2422,13 +2535,13 @@ function CreditRequestsTable() {
                   onClick={() => setApproving(null)}
                   className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted"
                 >
-                  Cancelar
+                  {t("admin.cancel")}
                 </button>
                 <button
                   onClick={() => {
                     const val = parseFloat(newLimit);
                     if (isNaN(val) || val <= 0) {
-                      toast.error("Ingresa un límite válido");
+                      toast.error(t("admin.credit.invalidLimit"));
                       return;
                     }
                     approveMutation.mutate({
@@ -2442,7 +2555,7 @@ function CreditRequestsTable() {
                   {approveMutation.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   )}
-                  Aprobar
+                  {t("admin.credit.approve")}
                 </button>
               </div>
             </div>
@@ -2454,6 +2567,7 @@ function CreditRequestsTable() {
 }
 
 function EarningsTab() {
+  const { t } = useLocale();
   const [period, setPeriod] = useState<PeriodFilter>("month");
   const [expandedOwners, setExpandedOwners] = useState<Set<string>>(new Set());
 
@@ -2485,7 +2599,7 @@ function EarningsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-muted-foreground">Período:</label>
+        <label className="text-sm font-medium text-muted-foreground">{t("admin.earnings.period")}</label>
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodFilter)}
@@ -2499,7 +2613,7 @@ function EarningsTab() {
               className="text-foreground bg-surface"
               style={{ color: "#f0f0f0", background: "#1a1a2e" }}
             >
-              {PERIOD_LABELS[p]}
+              {t(PERIOD_KEYS[p])}
             </option>
           ))}
         </select>
@@ -2507,7 +2621,7 @@ function EarningsTab() {
 
       {(!owners || owners.length === 0) && (
         <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
-          No hay ganancias registradas en este período
+          {t("admin.earnings.noEarnings")}
         </div>
       )}
 
@@ -2529,22 +2643,21 @@ function EarningsTab() {
                   <div>
                     <p className="font-semibold">{owner.owner_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {owner.total_sales} ventas &middot; {owner.workshops.length} taller
-                      {owner.workshops.length !== 1 ? "es" : ""}
+                      {owner.total_sales} {t("admin.earnings.sales")} &middot; {owner.workshops.length} {owner.workshops.length !== 1 ? t("admin.earnings.workshops") : t("admin.earnings.workshop")}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6 text-right">
                   <div>
-                    <p className="text-xs text-muted-foreground">Ingresos</p>
+                    <p className="text-xs text-muted-foreground">{t("admin.earnings.revenue")}</p>
                     <p className="font-bold text-green-500">${owner.total_revenue.toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Pagado</p>
+                    <p className="text-xs text-muted-foreground">{t("admin.earnings.paid")}</p>
                     <p className="font-semibold text-emerald-400">${owner.total_paid.toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Pendiente</p>
+                    <p className="text-xs text-muted-foreground">{t("admin.earnings.pending")}</p>
                     <p className="font-semibold text-amber-400">
                       ${owner.total_pending.toFixed(2)}
                     </p>
@@ -2557,11 +2670,11 @@ function EarningsTab() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                        <th className="px-5 py-3 font-medium">Taller</th>
-                        <th className="px-5 py-3 font-medium">Ventas</th>
-                        <th className="px-5 py-3 font-medium">Ingresos</th>
-                        <th className="px-5 py-3 font-medium">Pagado</th>
-                        <th className="px-5 py-3 font-medium">Pendiente</th>
+                        <th className="px-5 py-3 font-medium">{t("admin.orders.workshop")}</th>
+                        <th className="px-5 py-3 font-medium">{t("admin.earnings.sales")}</th>
+                        <th className="px-5 py-3 font-medium">{t("admin.earnings.revenue")}</th>
+                        <th className="px-5 py-3 font-medium">{t("admin.earnings.paid")}</th>
+                        <th className="px-5 py-3 font-medium">{t("admin.earnings.pending")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2599,6 +2712,7 @@ function EarningsTab() {
 
 function CommissionsTab() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [showCutoff, setShowCutoff] = useState(false);
   const [verifyModalCommissions, setVerifyModalCommissions] = useState<AdminCommission[] | null>(null);
@@ -2611,25 +2725,25 @@ function CommissionsTab() {
   const verifyAllMutation = useMutation({
     mutationFn: (workshopId: string) => adminMarkAllCommissionsPaid(workshopId),
     onSuccess: () => {
-      toast.success("Comisiones verificadas");
+      toast.success(t("admin.commissions.verifiedToast"));
       queryClient.invalidateQueries({ queryKey: ["admin-commissions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-cutoff"] });
       setVerifyModalCommissions(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error al verificar comisiones");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.commissions.errorVerifying"));
     },
   });
 
   const rejectAllMutation = useMutation({
     mutationFn: (workshopId: string) => adminMarkAllCommissionsErroneous(workshopId),
     onSuccess: () => {
-      toast.success("Comisiones rechazadas — vuelven a PENDING");
+      toast.success(t("admin.commissions.rejectedToast"));
       queryClient.invalidateQueries({ queryKey: ["admin-commissions"] });
       setVerifyModalCommissions(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error al rechazar comisiones");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.commissions.errorRejecting"));
     },
   });
 
@@ -2703,17 +2817,17 @@ function CommissionsTab() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
         >
-          <option value="">Todos</option>
-          <option value="PENDING">Pendientes</option>
-          <option value="PENDING_VERIFICATION">En verificación</option>
-          <option value="PAID">Verificadas</option>
+          <option value="">{t("admin.commissions.all")}</option>
+          <option value="PENDING">{t("admin.commissions.pending")}</option>
+          <option value="PENDING_VERIFICATION">{t("admin.commissions.inVerification")}</option>
+          <option value="PAID">{t("admin.commissions.verified")}</option>
         </select>
         <button
           onClick={() => setShowCutoff((v) => !v)}
           className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-surface"
         >
           <ClipboardList className="h-4 w-4" />
-          {showCutoff ? "Ocultar corte" : "Ver corte mensual"}
+          {showCutoff ? t("admin.commissions.hideCutoff") : t("admin.commissions.showCutoff")}
         </button>
       </div>
 
@@ -2722,7 +2836,7 @@ function CommissionsTab() {
           <div className="ml-card p-5">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
-              <p className="text-xs text-muted-foreground">Total Pendiente</p>
+              <p className="text-xs text-muted-foreground">{t("admin.commissions.totalPending")}</p>
             </div>
             <p className="mt-1 text-2xl font-bold text-amber-400">
               ${data.total_pending.toFixed(2)}
@@ -2731,7 +2845,7 @@ function CommissionsTab() {
           <div className="ml-card p-5">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <p className="text-xs text-muted-foreground">Total Verificado</p>
+              <p className="text-xs text-muted-foreground">{t("admin.commissions.totalVerified")}</p>
             </div>
             <p className="mt-1 text-2xl font-bold text-emerald-500">
               ${data.total_paid.toFixed(2)}
@@ -2748,7 +2862,7 @@ function CommissionsTab() {
         </div>
       ) : Object.keys(groupedByWorkshopMonth).length === 0 ? (
         <div className="ml-card p-8 text-center text-muted-foreground">
-          No hay comisiones registradas
+          {t("admin.commissions.noCommissions")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -2768,23 +2882,23 @@ function CommissionsTab() {
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Pendiente</p>
+                      <p className="text-xs text-muted-foreground">{t("admin.commissions.pendingLabel")}</p>
                       <p className="font-semibold text-amber-400">${group.pending_amount.toFixed(2)}</p>
-                      <p className="text-[10px] text-muted-foreground">{group.pending_count} trans.</p>
+                      <p className="text-[10px] text-muted-foreground">{group.pending_count} {t("admin.commissions.trans")}</p>
                     </div>
                     {group.verification_count > 0 && (
                       <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Verificación</p>
+                        <p className="text-xs text-muted-foreground">{t("admin.commissions.verificationLabel")}</p>
                         <p className="font-semibold text-blue-400">${group.verification_amount.toFixed(2)}</p>
-                        <p className="text-[10px] text-muted-foreground">{group.verification_count} trans.</p>
+                        <p className="text-[10px] text-muted-foreground">{group.verification_count} {t("admin.commissions.trans")}</p>
                       </div>
                     )}
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Verificado</p>
+                      <p className="text-xs text-muted-foreground">{t("admin.commissions.verifiedLabel")}</p>
                       <p className="font-semibold text-emerald-500">${group.paid_amount.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-xs text-muted-foreground">{t("admin.commissions.totalLabel")}</p>
                       <p className="font-semibold">${group.total_amount.toFixed(2)}</p>
                     </div>
                   </div>
@@ -2799,7 +2913,7 @@ function CommissionsTab() {
                       className="flex items-center gap-1 rounded-md border border-emerald-500/30 px-3 py-1.5 text-xs text-emerald-500 transition-colors hover:bg-emerald-500/10"
                     >
                       <CheckCircle2 className="h-3 w-3" />
-                      Verificar pagos ({group.verification_count})
+                      {t("admin.commissions.verifyPayments", undefined, { n: group.verification_count })}
                     </button>
                   </div>
                 )}
@@ -2816,10 +2930,10 @@ function CommissionsTab() {
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
-            <h2 className="text-lg font-semibold tracking-tight">Información de pago</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t("admin.commissions.paymentInfo")}</h2>
 
             <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-xs text-muted-foreground">Monto total ({verifyModalCommissions.length} comisiones)</p>
+              <p className="text-xs text-muted-foreground">{t("admin.commissions.totalAmount", undefined, { n: verifyModalCommissions.length })}</p>
               {effectiveRate > 0 ? (
                 <p className="mt-1 flex items-baseline gap-2 font-mono text-2xl font-bold text-primary">
                   {(totalAmount * effectiveRate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}bs
@@ -2834,7 +2948,7 @@ function CommissionsTab() {
               )}
               {effectiveRate > 0 && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Tasa BCV: {effectiveRate.toFixed(2)} Bs/$
+                  {t("admin.commissions.bcvRate", undefined, { rate: effectiveRate.toFixed(2) })}
                   {first.rate_date && (
                     <span className="ml-1">
                       — {new Date(first.rate_date).toLocaleDateString("es-ES")}
@@ -2846,28 +2960,28 @@ function CommissionsTab() {
 
             <div className="mt-4 space-y-3">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Taller:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.commissions.workshop")}</p>
                 <p className="text-sm font-medium">{first.workshop_name}</p>
               </div>
               {first.owner_name && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Dueño:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("admin.commissions.owner")}</p>
                   <p className="text-sm">{first.owner_name}</p>
                 </div>
               )}
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Método de pago:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.commissions.paymentMethod")}</p>
                 <p className="text-sm">{first.payment_method ? methodLabel(first.payment_method) : "—"}</p>
               </div>
               {first.reference_number && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Número de referencia:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("admin.commissions.referenceNumber")}</p>
                   <p className="text-sm font-mono">{first.reference_number}</p>
                 </div>
               )}
               {first.paid_at && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Fecha de pago:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("admin.commissions.paymentDate")}</p>
                   <p className="text-sm">
                     {new Date(first.paid_at).toLocaleDateString("es-ES", {
                       day: "numeric", month: "short", year: "numeric",
@@ -2877,9 +2991,9 @@ function CommissionsTab() {
                 </div>
               )}
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Estado:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.commissions.statusLabel")}</p>
                 <p className="text-sm">
-                  <span className="rounded-full px-2.5 py-0.5 text-xs bg-amber-500/10 text-amber-400">Pendiente</span>
+                  <span className="rounded-full px-2.5 py-0.5 text-xs bg-amber-500/10 text-amber-400">{t("admin.commissions.pendingBadge")}</span>
                 </p>
               </div>
             </div>
@@ -2892,7 +3006,7 @@ function CommissionsTab() {
                 className="w-full ml-btn ml-btn-primary"
               >
                 {verifyAllMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Verificar pago
+                {t("admin.commissions.verifyPayment")}
               </button>
               <button
                 type="button"
@@ -2901,7 +3015,7 @@ function CommissionsTab() {
                 className="w-full ml-btn ml-btn-outline border-red-500/30 text-red-400 hover:bg-red-500/10"
               >
                 {rejectAllMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Rechazar cuota
+                {t("admin.commissions.rejectInstallment")}
               </button>
             </div>
 
@@ -2911,7 +3025,7 @@ function CommissionsTab() {
                 onClick={() => setVerifyModalCommissions(null)}
                 className="ml-btn ml-btn-outline"
               >
-                Cerrar
+                {t("admin.close")}
               </button>
             </div>
           </div>
@@ -2925,6 +3039,7 @@ function CommissionsTab() {
 // ---- Late Fees Tab ----
 
 function CutoffPanel() {
+  const { t } = useLocale();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -2937,7 +3052,7 @@ function CutoffPanel() {
   return (
     <div className="ml-card p-5 space-y-4">
       <div className="flex items-center gap-3">
-        <h3 className="text-sm font-semibold">Corte mensual</h3>
+        <h3 className="text-sm font-semibold">{t("admin.commissions.cutoff.title")}</h3>
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
@@ -2966,15 +3081,15 @@ function CutoffPanel() {
         <>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-xs text-muted-foreground">{t("admin.commissions.cutoff.total")}</p>
               <p className="text-lg font-semibold">${data.grand_total.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Pendiente</p>
+              <p className="text-xs text-muted-foreground">{t("admin.commissions.cutoff.pending")}</p>
               <p className="text-lg font-semibold text-amber-400">${data.grand_pending.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Pagado</p>
+              <p className="text-xs text-muted-foreground">{t("admin.commissions.cutoff.paid")}</p>
               <p className="text-lg font-semibold text-emerald-500">${data.grand_paid.toFixed(2)}</p>
             </div>
           </div>
@@ -2982,18 +3097,18 @@ function CutoffPanel() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">Taller</th>
-                  <th className="px-3 py-2 font-medium">Comisiones</th>
-                  <th className="px-3 py-2 font-medium">Total</th>
-                  <th className="px-3 py-2 font-medium">Pendiente</th>
-                  <th className="px-3 py-2 font-medium">Pagado</th>
+                  <th className="px-3 py-2 font-medium">{t("admin.commissions.cutoff.workshop")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin.commissions.cutoff.commissions")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin.commissions.cutoff.total")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin.commissions.cutoff.pending")}</th>
+                  <th className="px-3 py-2 font-medium">{t("admin.commissions.cutoff.paid")}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.workshops.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
-                      Sin comisiones en este periodo
+                      {t("admin.commissions.cutoff.noData")}
                     </td>
                   </tr>
                 ) : (
@@ -3020,6 +3135,8 @@ function CutoffPanel() {
 
 function LateFeesTab() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
+  const [lateFeesSubTab, setLateFeesSubTab] = useState<"individual" | "users">("individual");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [verifyModalFee, setVerifyModalFee] = useState<AdminLateFee | null>(null);
 
@@ -3031,24 +3148,24 @@ function LateFeesTab() {
   const verifyMutation = useMutation({
     mutationFn: ({ id }: { id: string }) => adminVerifyLateFee(id),
     onSuccess: () => {
-      toast.success("Mora verificada");
+      toast.success(t("admin.lateFees.verifiedToast"));
       queryClient.invalidateQueries({ queryKey: ["admin-late-fees"] });
       setVerifyModalFee(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error al verificar mora");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.lateFees.errorVerifying"));
     },
   });
 
   const markErroneousMutation = useMutation({
     mutationFn: (lateFeeId: string) => adminMarkLateFeeErroneous(lateFeeId),
     onSuccess: () => {
-      toast.success("Mora rechazada — vuelve a PENDING");
+      toast.success(t("admin.lateFees.rejectedToast"));
       queryClient.invalidateQueries({ queryKey: ["admin-late-fees"] });
       setVerifyModalFee(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error al marcar mora");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.lateFees.errorRejecting"));
     },
   });
 
@@ -3062,11 +3179,11 @@ function LateFeesTab() {
 
   const statusBadge = (status: string) => {
     const map: Record<string, { label: string; color: string }> = {
-      PENDING: { label: "Pendiente", color: "bg-amber-500/10 text-amber-400" },
-      PENDING_VERIFICATION: { label: "Verificación", color: "bg-blue-500/10 text-blue-400" },
-      PAID: { label: "Verificada", color: "bg-emerald-500/10 text-emerald-500" },
-      WAIVED: { label: "Condonada", color: "bg-muted text-muted-foreground" },
-      ERRONEOUS: { label: "Rechazada", color: "bg-red-500/10 text-red-400" },
+      PENDING: { label: t("admin.lateFees.statusBadges.PENDING"), color: "bg-amber-500/10 text-amber-400" },
+      PENDING_VERIFICATION: { label: t("admin.lateFees.statusBadges.PENDING_VERIFICATION"), color: "bg-blue-500/10 text-blue-400" },
+      PAID: { label: t("admin.lateFees.statusBadges.PAID"), color: "bg-emerald-500/10 text-emerald-500" },
+      WAIVED: { label: t("admin.lateFees.statusBadges.WAIVED"), color: "bg-muted text-muted-foreground" },
+      ERRONEOUS: { label: t("admin.lateFees.statusBadges.ERRONEOUS"), color: "bg-red-500/10 text-red-400" },
     };
     const s = map[status] ?? { label: status, color: "bg-muted text-muted-foreground" };
     return <span className={`rounded-full px-2.5 py-0.5 text-xs ${s.color}`}>{s.label}</span>;
@@ -3074,28 +3191,55 @@ function LateFeesTab() {
 
   const methodLabel = (method: string) => {
     const map: Record<string, string> = {
-      BANK_TRANSFER: "Transferencia Bancaria",
-      MOBILE_PAYMENT: "Pago Móvil",
-      ZELLE: "Zelle",
-      BINANCE: "Binance",
-      CASH: "Efectivo",
-      ZINLI: "Zinli",
+      BANK_TRANSFER: t("admin.paymentMethods.methodTypes.bank_transfer"),
+      MOBILE_PAYMENT: t("admin.paymentMethods.methodTypes.mobile_payment"),
+      ZELLE: t("admin.paymentMethods.methodTypes.zelle"),
+      BINANCE: t("admin.paymentMethods.methodTypes.BINANCE"),
+      CASH: t("admin.paymentMethods.methodTypes.cash"),
+      ZINLI: t("admin.paymentMethods.methodTypes.zinli"),
     };
     return map[method] ?? method;
   };
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-4 border-b border-border">
+        <button
+          onClick={() => setLateFeesSubTab("individual")}
+          className={`pb-2 text-sm font-medium transition-colors ${
+            lateFeesSubTab === "individual"
+              ? "border-b-2 border-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {t("admin.lateFees.title")}
+        </button>
+        <button
+          onClick={() => setLateFeesSubTab("users")}
+          className={`pb-2 text-sm font-medium transition-colors ${
+            lateFeesSubTab === "users"
+              ? "border-b-2 border-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {t("lateFeesUsers.title")}
+        </button>
+      </div>
+
+      {lateFeesSubTab === "users" ? (
+        <LateFeesUsersTab />
+      ) : (
+      <>
       <div className="flex items-center justify-between">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
         >
-          <option value="">Todos</option>
-          <option value="PENDING">Pendientes</option>
-          <option value="PENDING_VERIFICATION">En verificación</option>
-          <option value="PAID">Verificadas</option>
+          <option value="">{t("admin.lateFees.all")}</option>
+          <option value="PENDING">{t("admin.lateFees.pending")}</option>
+          <option value="PENDING_VERIFICATION">{t("admin.lateFees.inVerification")}</option>
+          <option value="PAID">{t("admin.lateFees.verified")}</option>
         </select>
       </div>
 
@@ -3104,7 +3248,7 @@ function LateFeesTab() {
           <div className="ml-card p-5">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
-              <p className="text-xs text-muted-foreground">Total Pendiente</p>
+              <p className="text-xs text-muted-foreground">{t("admin.lateFees.totalPending")}</p>
             </div>
             <p className="mt-1 text-2xl font-bold text-amber-400">
               ${data.total_pending.toFixed(2)}
@@ -3113,7 +3257,7 @@ function LateFeesTab() {
           <div className="ml-card p-5">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <p className="text-xs text-muted-foreground">Total Verificado</p>
+              <p className="text-xs text-muted-foreground">{t("admin.lateFees.totalVerified")}</p>
             </div>
             <p className="mt-1 text-2xl font-bold text-emerald-500">
               ${data.total_paid.toFixed(2)}
@@ -3128,7 +3272,7 @@ function LateFeesTab() {
         </div>
       ) : sortedLateFees.length === 0 ? (
         <div className="ml-card p-8 text-center text-muted-foreground">
-          No hay moras registradas
+          {t("admin.lateFees.noLateFees")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -3143,7 +3287,7 @@ function LateFeesTab() {
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">{f.user_name}</p>
                       <span className={`rounded-full px-2 py-0.5 text-xs ${f.installment_type === "PARTS" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"}`}>
-                        {f.installment_type === "PARTS" ? "Repuestos" : "Servicio"}
+                        {f.installment_type === "PARTS" ? t("admin.lateFees.parts") : t("admin.lateFees.service")}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">{f.user_email}</p>
@@ -3151,11 +3295,11 @@ function LateFeesTab() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Monto</p>
+                    <p className="text-xs text-muted-foreground">{t("admin.lateFees.amount")}</p>
                     <p className="text-lg font-bold text-red-400">${f.amount.toFixed(2)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Fecha</p>
+                    <p className="text-xs text-muted-foreground">{t("admin.lateFees.date")}</p>
                     <p className="text-sm text-muted-foreground">{new Date(f.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -3176,7 +3320,7 @@ function LateFeesTab() {
                       className="flex items-center gap-1 rounded-md border border-emerald-500/30 px-2.5 py-1 text-xs text-emerald-500 transition-colors hover:bg-emerald-500/10"
                     >
                       <CheckCircle2 className="h-3 w-3" />
-                      Verificar
+                      {t("admin.lateFees.verify")}
                     </button>
                   )}
                 </div>
@@ -3189,10 +3333,10 @@ function LateFeesTab() {
       {verifyModalFee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
-            <h2 className="text-lg font-semibold tracking-tight">Información de pago</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t("admin.lateFees.paymentInfo")}</h2>
 
             <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-xs text-muted-foreground">Monto</p>
+              <p className="text-xs text-muted-foreground">{t("admin.lateFees.amount")}</p>
               {(() => {
                 const effectiveRate = (verifyModalFee.rate && verifyModalFee.rate > 0) ? verifyModalFee.rate : 0;
                 if (effectiveRate > 0) {
@@ -3214,7 +3358,7 @@ function LateFeesTab() {
               })()}
               {verifyModalFee.rate && verifyModalFee.rate > 0 && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Tasa BCV: {verifyModalFee.rate.toFixed(2)} Bs/$
+                  {t("admin.lateFees.bcvRate", undefined, { rate: verifyModalFee.rate.toFixed(2) })}
                   {verifyModalFee.rate_date && (
                     <span className="ml-1">
                       — {new Date(verifyModalFee.rate_date).toLocaleDateString("es-ES")}
@@ -3226,26 +3370,26 @@ function LateFeesTab() {
 
             <div className="mt-4 space-y-3">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Cliente:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.lateFees.client")}</p>
                 <p className="text-sm font-medium">{verifyModalFee.user_name}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Tipo:</p>
-                <p className="text-sm">{verifyModalFee.installment_type === "PARTS" ? "Repuestos" : "Servicio"}</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.lateFees.type")}</p>
+                <p className="text-sm">{verifyModalFee.installment_type === "PARTS" ? t("admin.lateFees.parts") : t("admin.lateFees.service")}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Método de pago:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.lateFees.paymentMethod")}</p>
                 <p className="text-sm">{verifyModalFee.payment_method ? methodLabel(verifyModalFee.payment_method) : "—"}</p>
               </div>
               {verifyModalFee.reference_number && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Número de referencia:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("admin.lateFees.referenceNumber")}</p>
                   <p className="text-sm font-mono">{verifyModalFee.reference_number}</p>
                 </div>
               )}
               {verifyModalFee.paid_at && (
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Fecha de pago:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("admin.lateFees.paymentDate")}</p>
                   <p className="text-sm">
                     {new Date(verifyModalFee.paid_at).toLocaleDateString("es-ES", {
                       day: "numeric", month: "short", year: "numeric",
@@ -3255,9 +3399,9 @@ function LateFeesTab() {
                 </div>
               )}
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Estado:</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("admin.lateFees.statusLabel")}</p>
                 <p className="text-sm">
-                  <span className="rounded-full px-2.5 py-0.5 text-xs bg-amber-500/10 text-amber-400">Pendiente</span>
+                  <span className="rounded-full px-2.5 py-0.5 text-xs bg-amber-500/10 text-amber-400">{t("admin.lateFees.pendingBadge")}</span>
                 </p>
               </div>
             </div>
@@ -3270,7 +3414,7 @@ function LateFeesTab() {
                 className="w-full ml-btn ml-btn-primary"
               >
                 {verifyMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Verificar pago
+                {t("admin.lateFees.verifyPayment")}
               </button>
               <button
                 type="button"
@@ -3279,7 +3423,7 @@ function LateFeesTab() {
                 className="w-full ml-btn ml-btn-outline border-red-500/30 text-red-400 hover:bg-red-500/10"
               >
                 {markErroneousMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Rechazar cuota
+                {t("admin.lateFees.rejectInstallment")}
               </button>
             </div>
 
@@ -3289,11 +3433,13 @@ function LateFeesTab() {
                 onClick={() => setVerifyModalFee(null)}
                 className="ml-btn ml-btn-outline"
               >
-                Cerrar
+                {t("admin.close")}
               </button>
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -3305,6 +3451,7 @@ const ADMIN_CI_PREFIXES = ["V", "E", "P", "R", "J", "G"] as const;
 
 function PaymentMethodsTab() {
   const queryClient = useQueryClient();
+  const { t } = useLocale();
   const [showForm, setShowForm] = useState(false);
   const [holderCiPrefix, setHolderCiPrefix] = useState<string>("V");
   const [holderCiNumber, setHolderCiNumber] = useState<string>("");
@@ -3331,34 +3478,34 @@ function PaymentMethodsTab() {
   const createMutation = useMutation({
     mutationFn: (input: CreateAdminPaymentMethodInput) => adminCreatePaymentMethod(input),
     onSuccess: () => {
-      toast.success("Método de pago creado");
+      toast.success(t("admin.paymentMethods.methodCreated"));
       resetForm();
       queryClient.invalidateQueries({ queryKey: ["admin-payment-methods"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error al crear método de pago");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.paymentMethods.errorCreating"));
     },
   });
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) => adminTogglePaymentMethod(id),
     onSuccess: () => {
-      toast.success("Método actualizado");
+      toast.success(t("admin.paymentMethods.methodUpdated"));
       queryClient.invalidateQueries({ queryKey: ["admin-payment-methods"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.paymentMethods.errorToggle"));
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => adminDeletePaymentMethod(id),
     onSuccess: () => {
-      toast.success("Método eliminado");
+      toast.success(t("admin.paymentMethods.methodDeleted"));
       queryClient.invalidateQueries({ queryKey: ["admin-payment-methods"] });
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.detail ?? err?.message ?? "Error");
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("admin.paymentMethods.errorToggle"));
     },
   });
 
@@ -3388,7 +3535,7 @@ function PaymentMethodsTab() {
   function handleSave() {
     setFormError(null);
     if (!label.trim()) {
-      setFormError("La etiqueta es obligatoria");
+      setFormError(t("admin.paymentMethods.labelRequired"));
       return;
     }
     const ci = holderCiNumber ? `${holderCiPrefix}-${holderCiNumber}` : "";
@@ -3407,26 +3554,26 @@ function PaymentMethodsTab() {
 
   const methodTypeLabel = (type: string) => {
     const map: Record<string, string> = {
-      bank_transfer: "Transferencia Bancaria",
-      mobile_payment: "Pago Móvil",
-      cash: "Efectivo",
-      zelle: "Zelle",
-      zinli: "Zinli",
-      BANK_TRANSFER: "Transferencia Bancaria",
-      MOBILE_PAYMENT: "Pago Móvil",
-      ZELLE: "Zelle",
-      BINANCE: "Binance",
-      OTHER: "Otro",
+      bank_transfer: t("admin.paymentMethods.methodTypes.bank_transfer"),
+      mobile_payment: t("admin.paymentMethods.methodTypes.mobile_payment"),
+      cash: t("admin.paymentMethods.methodTypes.cash"),
+      zelle: t("admin.paymentMethods.methodTypes.zelle"),
+      zinli: t("admin.paymentMethods.methodTypes.zinli"),
+      BANK_TRANSFER: t("admin.paymentMethods.methodTypes.bank_transfer"),
+      MOBILE_PAYMENT: t("admin.paymentMethods.methodTypes.mobile_payment"),
+      ZELLE: t("admin.paymentMethods.methodTypes.zelle"),
+      BINANCE: t("admin.paymentMethods.methodTypes.BINANCE"),
+      OTHER: t("admin.paymentMethods.methodTypes.OTHER"),
     };
     return map[type] ?? type;
   };
 
   const methodIcon = (type: string) => {
-    const t = type.toLowerCase();
-    if (t === "bank_transfer") return <Building2 className="h-5 w-5 text-primary" />;
-    if (t === "mobile_payment") return <Smartphone className="h-5 w-5 text-primary" />;
-    if (t === "zelle" || t === "zinli") return <Mail className="h-5 w-5 text-primary" />;
-    if (t === "cash") return <CreditCard className="h-5 w-5 text-primary" />;
+    const lc = type.toLowerCase();
+    if (lc === "bank_transfer") return <Building2 className="h-5 w-5 text-primary" />;
+    if (lc === "mobile_payment") return <Smartphone className="h-5 w-5 text-primary" />;
+    if (lc === "zelle" || lc === "zinli") return <Mail className="h-5 w-5 text-primary" />;
+    if (lc === "cash") return <CreditCard className="h-5 w-5 text-primary" />;
     return <CreditCard className="h-5 w-5 text-primary" />;
   };
 
@@ -3434,14 +3581,14 @@ function PaymentMethodsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Registra los destinos de pago para moras y comisiones.
+          {t("admin.paymentMethods.description")}
         </p>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          Nuevo método
+          {t("admin.paymentMethods.newMethod")}
         </button>
       </div>
 
@@ -3449,7 +3596,7 @@ function PaymentMethodsTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Registrar método de pago</h3>
+              <h3 className="font-semibold">{t("admin.paymentMethods.registerMethod")}</h3>
               <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
@@ -3457,7 +3604,7 @@ function PaymentMethodsTab() {
 
             <div className="mt-4 space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Etiqueta</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.label")}</label>
                 <input
                   type="text"
                   value={label}
@@ -3468,37 +3615,37 @@ function PaymentMethodsTab() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Tipo</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.type")}</label>
                 <select
                   value={methodType}
                   onChange={(e) => handleMethodTypeChange(e.target.value as any)}
                   className="ml-input"
                 >
-                  <option value="mobile_payment">Pago móvil</option>
-                  <option value="bank_transfer">Transferencia bancaria</option>
-                  <option value="cash">Efectivo</option>
-                  <option value="zelle">Zelle</option>
-                  <option value="zinli">Zinli</option>
+                  <option value="mobile_payment">{t("admin.paymentMethods.methodTypes.mobile_payment")}</option>
+                  <option value="bank_transfer">{t("admin.paymentMethods.methodTypes.bank_transfer")}</option>
+                  <option value="cash">{t("admin.paymentMethods.methodTypes.cash")}</option>
+                  <option value="zelle">{t("admin.paymentMethods.methodTypes.zelle")}</option>
+                  <option value="zinli">{t("admin.paymentMethods.methodTypes.zinli")}</option>
                 </select>
               </div>
 
               {methodType === "bank_transfer" && (
                 <>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Banco</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.bank")}</label>
                     <select
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       className="ml-input"
                     >
-                      <option value="">Seleccionar banco</option>
+                      <option value="">{t("admin.paymentMethods.selectBank")}</option>
                       {(banks ?? []).map((b) => (
                         <option key={b} value={b}>{b}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Número de cuenta</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.accountNumber")}</label>
                     <input
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
@@ -3507,7 +3654,7 @@ function PaymentMethodsTab() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Titular</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.holder")}</label>
                     <input
                       value={accountHolder}
                       onChange={(e) => setAccountHolder(e.target.value)}
@@ -3516,7 +3663,7 @@ function PaymentMethodsTab() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Cédula del titular</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.holderCi")}</label>
                     <div className="flex gap-2">
                       <select
                         value={holderCiPrefix}
@@ -3542,20 +3689,20 @@ function PaymentMethodsTab() {
               {methodType === "mobile_payment" && (
                 <>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Banco</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.bank")}</label>
                     <select
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       className="ml-input"
                     >
-                      <option value="">Seleccionar banco</option>
+                      <option value="">{t("admin.paymentMethods.selectBank")}</option>
                       {(banks ?? []).map((b) => (
                         <option key={b} value={b}>{b}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Teléfono</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.phone")}</label>
                     <input
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
@@ -3564,7 +3711,7 @@ function PaymentMethodsTab() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Cédula del titular</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.holderCi")}</label>
                     <div className="flex gap-2">
                       <select
                         value={holderCiPrefix}
@@ -3589,7 +3736,7 @@ function PaymentMethodsTab() {
 
               {methodType === "cash" && (
                 <p className="text-sm text-muted-foreground">
-                  Pago en efectivo al recibir el producto.
+                  {t("admin.paymentMethods.cashDesc")}
                 </p>
               )}
 
@@ -3606,7 +3753,7 @@ function PaymentMethodsTab() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Titular</label>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("admin.paymentMethods.holder")}</label>
                     <input
                       value={accountHolder}
                       onChange={(e) => setAccountHolder(e.target.value)}
@@ -3615,7 +3762,7 @@ function PaymentMethodsTab() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Pago en USD — no requiere equivalente en bolívares.
+                    {t("admin.paymentMethods.usdDesc")}
                   </p>
                 </>
               )}
@@ -3628,7 +3775,7 @@ function PaymentMethodsTab() {
 
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={resetForm} className="ml-btn ml-btn-outline text-xs">
-                  Cancelar
+                  {t("admin.cancel")}
                 </button>
                 <button
                   type="button"
@@ -3637,7 +3784,7 @@ function PaymentMethodsTab() {
                   className="ml-btn ml-btn-primary text-xs"
                 >
                   {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Guardar
+                  {t("admin.save")}
                 </button>
               </div>
             </div>
@@ -3651,7 +3798,7 @@ function PaymentMethodsTab() {
         </div>
       ) : !methods || methods.length === 0 ? (
         <div className="ml-card p-8 text-center text-muted-foreground">
-          No hay métodos de pago registrados
+          {t("admin.paymentMethods.noMethods")}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -3668,15 +3815,15 @@ function PaymentMethodsTab() {
                   </div>
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${m.is_active ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
-                  {m.is_active ? "Activo" : "Inactivo"}
+                  {m.is_active ? t("admin.paymentMethods.activate") : t("admin.paymentMethods.deactivate")}
                 </span>
               </div>
               <div className="mt-3 space-y-1 text-sm">
-                {m.bank_name && <p className="text-muted-foreground">Banco: <span className="text-foreground">{m.bank_name}</span></p>}
-                {m.account_number && <p className="text-muted-foreground">{m.method_type.toLowerCase() === "mobile_payment" ? "Teléfono" : "Cuenta"}: <span className="text-foreground font-mono">{m.account_number}</span></p>}
-                {m.holder_name && <p className="text-muted-foreground">Titular: <span className="text-foreground">{m.holder_name}</span></p>}
-                {m.holder_ci && <p className="text-muted-foreground">CI: <span className="text-foreground">{m.holder_ci}</span></p>}
-                {m.phone && <p className="text-muted-foreground">Tel: <span className="text-foreground">{m.phone}</span></p>}
+                {m.bank_name && <p className="text-muted-foreground">{t("admin.paymentMethods.bankColon")} <span className="text-foreground">{m.bank_name}</span></p>}
+                {m.account_number && <p className="text-muted-foreground">{m.method_type.toLowerCase() === "mobile_payment" ? t("admin.paymentMethods.phoneLabel") : t("admin.paymentMethods.accountColon")}: <span className="text-foreground font-mono">{m.account_number}</span></p>}
+                {m.holder_name && <p className="text-muted-foreground">{t("admin.paymentMethods.holderColon")} <span className="text-foreground">{m.holder_name}</span></p>}
+                {m.holder_ci && <p className="text-muted-foreground">{t("admin.paymentMethods.ciColon")} <span className="text-foreground">{m.holder_ci}</span></p>}
+                {m.phone && <p className="text-muted-foreground">{t("admin.paymentMethods.telColon")} <span className="text-foreground">{m.phone}</span></p>}
                 {m.email && <p className="text-muted-foreground">Email: <span className="text-foreground">{m.email}</span></p>}
               </div>
               <div className="mt-3 flex gap-2 border-t border-border/50 pt-3">
@@ -3684,18 +3831,515 @@ function PaymentMethodsTab() {
                   onClick={() => toggleMutation.mutate(m.id)}
                   className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-surface"
                 >
-                  {m.is_active ? "Desactivar" : "Activar"}
+                  {m.is_active ? t("admin.paymentMethods.deactivate") : t("admin.paymentMethods.activate")}
                 </button>
                 <button
                   onClick={() => deleteMutation.mutate(m.id)}
                   className="flex items-center gap-1 rounded-md border border-red-500/30 px-2.5 py-1 text-xs text-red-400 transition-colors hover:bg-red-500/10"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Eliminar
+                  {t("admin.delete")}
                 </button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Support Tab ----
+
+function SupportTab() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { t } = useLocale();
+  const [statusFilter, setStatusFilter] = useState<string>("PENDING");
+  const [selectedMsg, setSelectedMsg] = useState<SupportMessageDTO | null>(null);
+  const [actionNote, setActionNote] = useState("");
+  const [showResolveModal, setShowResolveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-support-messages", statusFilter],
+    queryFn: () => adminListSupportMessages(statusFilter || undefined),
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) => resolveSupportMessage(id, note),
+    onSuccess: () => {
+      toast.success(t("adminSupport.resolve"));
+      queryClient.invalidateQueries({ queryKey: ["admin-support-messages"] });
+      setShowResolveModal(false);
+      setActionNote("");
+      setSelectedMsg(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail ?? err?.message),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) => rejectSupportMessage(id, note),
+    onSuccess: () => {
+      toast.success(t("adminSupport.reject"));
+      queryClient.invalidateQueries({ queryKey: ["admin-support-messages"] });
+      setShowRejectModal(false);
+      setActionNote("");
+      setSelectedMsg(null);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail ?? err?.message),
+  });
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { label: string; color: string }> = {
+      PENDING: { label: t("support.status.PENDING"), color: "bg-amber-500/10 text-amber-400" },
+      RESOLVED: { label: t("support.status.RESOLVED"), color: "bg-emerald-500/10 text-emerald-400" },
+      REJECTED: { label: t("adminSupport.rejected"), color: "bg-red-500/10 text-red-400" },
+    };
+    return map[status] ?? { label: status, color: "bg-muted text-muted-foreground" };
+  };
+
+  const typeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      REPORT: t("support.types.REPORT"),
+      QUESTION: t("support.types.QUESTION"),
+      SUGGESTION: t("support.types.SUGGESTION"),
+      COMPLAINT: t("support.types.COMPLAINT"),
+      OTHER: t("support.types.OTHER"),
+    };
+    return map[type] ?? type;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
+        >
+          <option value="">{t("adminSupport.filterAll")}</option>
+          <option value="PENDING">{t("adminSupport.filterPending")}</option>
+          <option value="RESOLVED">{t("adminSupport.filterResolved")}</option>
+          <option value="REJECTED">{t("adminSupport.filterRejected")}</option>
+        </select>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Headphones className="h-10 w-10 text-destructive/40" />
+          <p className="mt-3 text-sm text-destructive">
+            {(error as any)?.response?.data?.detail ?? (error as any)?.message ?? "Error al cargar mensajes"}
+          </p>
+        </div>
+      ) : data && data.messages.length > 0 ? (
+        <div className="space-y-3">
+          {data.messages.map((msg) => {
+            const badge = statusBadge(msg.status);
+            return (
+              <div
+                key={msg.id}
+                className="ml-card cursor-pointer p-4 transition-all hover:border-border-strong"
+                onClick={() => setSelectedMsg(msg)}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${badge.color}`}>
+                        {badge.label}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{typeLabel(msg.type)}</span>
+                    </div>
+                    <h4 className="mt-1.5 truncate text-sm font-medium text-foreground">{msg.subject}</h4>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{msg.message}</p>
+                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{msg.user_name}</span>
+                      <span>{msg.user_email}</span>
+                      <span>{new Date(msg.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-1" onClick={(e) => e.stopPropagation()}>
+                    {msg.status === "PENDING" && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setSelectedMsg(msg);
+                            setShowResolveModal(true);
+                          }}
+                          className="flex items-center gap-1 rounded-md border border-emerald-500/30 px-2 py-1 text-xs text-emerald-400 transition-colors hover:bg-emerald-500/10"
+                        >
+                          <Check className="h-3 w-3" />
+                          {t("adminSupport.resolve")}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedMsg(msg);
+                            setShowRejectModal(true);
+                          }}
+                          className="flex items-center gap-1 rounded-md border border-red-500/30 px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-500/10"
+                        >
+                          <XCircle className="h-3 w-3" />
+                          {t("adminSupport.reject")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Headphones className="h-10 w-10 text-muted-foreground/40" />
+          <p className="mt-3 text-sm text-muted-foreground">{t("adminSupport.noMessages")}</p>
+        </div>
+      )}
+
+      {/* Detail modal */}
+      {selectedMsg && !showResolveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">{t("adminSupport.detail")}</h2>
+              <button onClick={() => setSelectedMsg(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground">{t("adminSupport.user")}</p>
+                <p className="text-sm font-medium">{selectedMsg.user_name} ({selectedMsg.user_email})</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t("adminSupport.subject")}</p>
+                <p className="text-sm font-medium">{selectedMsg.subject}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t("adminSupport.type")}</p>
+                <p className="text-sm">{typeLabel(selectedMsg.type)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t("support.message")}</p>
+                <p className="text-sm whitespace-pre-wrap">{selectedMsg.message}</p>
+              </div>
+              {selectedMsg.related_order_id && (
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("adminSupport.relatedOrder")}</p>
+                  <button
+                    onClick={() => {
+                      const oid = selectedMsg.related_order_id!;
+                      setSelectedMsg(null);
+                      if (selectedMsg.related_order_type === "SERVICE") {
+                        navigate({ to: "/dashboard/service-orders/$orderId", params: { orderId: oid } });
+                      } else {
+                        navigate({ to: "/dashboard/purchases/$purchaseId", params: { purchaseId: oid } });
+                      }
+                    }}
+                    className="text-sm font-mono text-primary hover:underline"
+                  >
+                    #{selectedMsg.related_order_id.slice(0, 8)} →
+                  </button>
+                </div>
+              )}
+              {selectedMsg.admin_note && (
+                <div>
+                  <p className="text-xs text-muted-foreground">{t("adminSupport.adminNote")}</p>
+                  <p className="text-sm">{selectedMsg.admin_note}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground">{t("adminSupport.status")}</p>
+                <span className={`mt-1 inline-block rounded-md px-2 py-0.5 text-xs font-medium ${statusBadge(selectedMsg.status).color}`}>
+                  {statusBadge(selectedMsg.status).label}
+                </span>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setSelectedMsg(null)} className="ml-btn ml-btn-outline">
+                {t("admin.close")}
+              </button>
+              {selectedMsg.status === "PENDING" && (
+                <>
+                  <button
+                    onClick={() => setShowRejectModal(true)}
+                    className="ml-btn ml-btn-outline border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    {t("adminSupport.reject")}
+                  </button>
+                  <button
+                    onClick={() => setShowResolveModal(true)}
+                    className="ml-btn ml-btn-primary"
+                  >
+                    <Check className="h-4 w-4" />
+                    {t("adminSupport.resolve")}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resolve modal */}
+      {showResolveModal && selectedMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">{t("adminSupport.resolveWithNote")}</h2>
+              <button
+                onClick={() => {
+                  setShowResolveModal(false);
+                  setActionNote("");
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  {t("adminSupport.adminNote")}
+                </label>
+                <textarea
+                  className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong min-h-[80px] resize-y"
+                  value={actionNote}
+                  onChange={(e) => setActionNote(e.target.value)}
+                  placeholder={t("adminSupport.adminNotePlaceholder")}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowResolveModal(false);
+                  setActionNote("");
+                }}
+                className="ml-btn ml-btn-outline"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() =>
+                  resolveMutation.mutate({
+                    id: selectedMsg.id,
+                    note: actionNote || undefined,
+                  })
+                }
+                disabled={resolveMutation.isPending}
+                className="ml-btn ml-btn-primary"
+              >
+                {resolveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {t("adminSupport.resolve")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject modal */}
+      {showRejectModal && selectedMsg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">{t("adminSupport.rejectWithNote")}</h2>
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setActionNote("");
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  {t("adminSupport.adminNote")}
+                </label>
+                <textarea
+                  className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong min-h-[80px] resize-y"
+                  value={actionNote}
+                  onChange={(e) => setActionNote(e.target.value)}
+                  placeholder={t("adminSupport.rejectNotePlaceholder")}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setActionNote("");
+                }}
+                className="ml-btn ml-btn-outline"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() =>
+                  rejectMutation.mutate({
+                    id: selectedMsg.id,
+                    note: actionNote || undefined,
+                  })
+                }
+                disabled={rejectMutation.isPending}
+                className="ml-btn ml-btn-primary border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+              >
+                {rejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                {t("adminSupport.reject")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// ---- Late Fees Users Summary Tab ----
+
+function LateFeesUsersTab() {
+  const { t } = useLocale();
+  const [selectedUser, setSelectedUser] = useState<LateFeeUserSummaryDTO | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin-late-fees-users-summary"],
+    queryFn: getLateFeesUsersSummary,
+  });
+
+  const { data: userOrdersData, isLoading: userOrdersLoading } = useQuery({
+    queryKey: ["admin-user-orders-summary", selectedUser?.user_id],
+    queryFn: () => getUserOrdersSummary(selectedUser!.user_id),
+    enabled: !!selectedUser,
+  });
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-medium text-foreground">{t("lateFeesUsers.title")}</h3>
+        <p className="text-xs text-muted-foreground">{t("lateFeesUsers.subtitle")}</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : data && data.users.length > 0 ? (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-surface">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("lateFeesUsers.userName")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("lateFeesUsers.feesCount")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("lateFeesUsers.totalFees")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("lateFeesUsers.oldestDays")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("lateFeesUsers.activeDebt")}</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">{t("lateFeesUsers.activeOrders")}</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.users.map((u) => (
+                <tr key={u.user_id} className="border-b border-border/50 last:border-0">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-foreground">{u.user_name}</p>
+                    <p className="text-xs text-muted-foreground">{u.user_email}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
+                      {u.late_fees_count}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-foreground">${u.total_late_fees_amount.toFixed(2)}</td>
+                  <td className="px-4 py-3">
+                    <span className={u.oldest_late_fee_days > 7 ? "text-red-400" : "text-amber-400"}>
+                      {u.oldest_late_fee_days}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-foreground">${u.total_active_debt.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-foreground">{u.active_orders_count}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => setSelectedUser(u)}
+                      className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted"
+                    >
+                      <Eye className="h-3 w-3" />
+                      {t("lateFeesUsers.viewOrders")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <AlertTriangle className="h-10 w-10 text-muted-foreground/40" />
+          <p className="mt-3 text-sm text-muted-foreground">{t("lateFeesUsers.noUsers")}</p>
+        </div>
+      )}
+
+      {/* User orders modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-surface p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">
+                {t("lateFeesUsers.ordersTitle", undefined, { name: selectedUser.user_name })}
+              </h2>
+              <button onClick={() => setSelectedUser(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {userOrdersLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : userOrdersData && userOrdersData.orders.length > 0 ? (
+              <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+                {userOrdersData.orders.map((order) => (
+                  <div key={`${order.type}-${order.id}`} className="rounded-lg border border-border/50 p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+                          order.type === "PARTS" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"
+                        }`}>
+                          {order.type === "PARTS" ? t("lateFeesUsers.typeParts") : t("lateFeesUsers.typeService")}
+                        </span>
+                        <span className="text-sm font-mono text-muted-foreground">{order.short_id}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{order.status}</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <div>
+                        <p className="text-muted-foreground">{t("lateFeesUsers.workshop")}: {order.workshop_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("lateFeesUsers.total")}: ${order.total_amount.toFixed(2)} · {t("lateFeesUsers.pending")}: ${order.pending_amount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("lateFeesUsers.noUsers")}</p>
+            )}
+
+            <div className="mt-5 flex justify-end">
+              <button onClick={() => setSelectedUser(null)} className="ml-btn ml-btn-outline">
+                {t("lateFeesUsers.close")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
