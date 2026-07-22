@@ -108,6 +108,7 @@ export function PurchaseDetailPage() {
   const installmentStatusLabel = (status: string) =>
     t(`purchaseDetail.installmentStatus.${status}`, status);
   const paymentMethodLabel = (type: string) => {
+    const key = type.toLowerCase();
     const labels: Record<string, string> = {
       bank_transfer: t("checkout.paymentTypes.bank_transfer", "Bank transfer"),
       mobile_payment: t("checkout.paymentTypes.mobile_payment", "Mobile payment"),
@@ -116,7 +117,7 @@ export function PurchaseDetailPage() {
       zinli: t("checkout.paymentTypes.zinli", "Zinli"),
       other: t("common.notAvailable", "Other"),
     };
-    return labels[type] ?? type;
+    return labels[key] ?? type;
   };
 
   const backLink = (() => {
@@ -148,7 +149,7 @@ export function PurchaseDetailPage() {
   const [markPaidInstallment, setMarkPaidInstallment] = useState<InstallmentDTO | null>(null);
   const [markPaidDate, setMarkPaidDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] =
-    useState<PayInstallmentInput["payment_method"]>("BANK_TRANSFER");
+    useState<PayInstallmentInput["payment_method"]>("");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -157,6 +158,7 @@ export function PurchaseDetailPage() {
   const [showShipModal, setShowShipModal] = useState(false);
   const [shipTracking, setShipTracking] = useState("");
   const [shipNotes, setShipNotes] = useState("");
+  const [showReceiptConfirm, setShowReceiptConfirm] = useState(false);
 
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ["order", purchaseId],
@@ -254,13 +256,13 @@ export function PurchaseDetailPage() {
       comment?: string;
       targetRole: "WORKSHOP" | "CLIENT";
     }) =>
-      isClient
-        ? rateOrderWorkshop(purchaseId, { rating, comment })
-        : rateOrderClient(purchaseId, { rating, comment }),
+      isWorkshopContext
+        ? rateOrderClient(purchaseId, { rating, comment })
+        : rateOrderWorkshop(purchaseId, { rating, comment }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", purchaseId] });
       toast.success(
-        isClient ? pd("workshopRated") : pd("clientRated"),
+        isWorkshopContext ? pd("clientRated") : pd("workshopRated"),
       );
       setShowRatingModal(false);
       setRatingValue(5);
@@ -342,6 +344,10 @@ export function PurchaseDetailPage() {
   function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (!payingInstallment) return;
+    if (!paymentMethod) {
+      toast.error(pd("selectPaymentMethod"));
+      return;
+    }
     const isCash = paymentMethod === "CASH";
     if (!isCash && !referenceNumber.trim()) {
       toast.error(pd("enterReference"));
@@ -487,10 +493,9 @@ export function PurchaseDetailPage() {
                                     {installmentStatusLabel(inst.status)}
                                   </p>
                                   <p className="text-[11px] text-muted-foreground">
-                                    {inst.due_date && (
+                                    {inst.due_date && inst.status === "PENDING" && (
                                       <>
                                         {pd("dueDate")} {new Date(inst.due_date).toLocaleDateString("es-ES")}
-                                        {inst.paid_at && " · "}
                                       </>
                                     )}
                                     {inst.paid_at &&
@@ -502,7 +507,7 @@ export function PurchaseDetailPage() {
                                 <p className="font-mono text-xs font-bold">
                                   ${inst.amount.toFixed(2)}
                                 </p>
-                                {inst.status !== "PAID" && installmentsList.length > 1 && (
+                                {inst.status !== "PAID" && installmentsList.length > 1 && idx > 0 && (
                                   <p className="text-[10px] text-primary/70">
                                     {pd("ptsOnTime", "+{amount} pts", { amount: inst.amount.toFixed(2) })}
                                   </p>
@@ -580,14 +585,14 @@ export function PurchaseDetailPage() {
               </div>
             )}
 
-            {order.workshop_name && (
+            {order.workshop_name && (isClient || isAdmin) && !isWorkshopContext && (
               <div className="ml-card p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
                   <Store className="h-4 w-4" />
                   {pd("workshop")}
                 </h2>
                 <p className="text-sm font-medium">{order.workshop_name}</p>
-                {isClient && (
+                {(isClient || isAdmin) && (
                   <>
                     {order.workshop_rif && (
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -599,29 +604,52 @@ export function PurchaseDetailPage() {
                     )}
                   </>
                 )}
-                {!isClient && (
-                  <div className="mt-3 space-y-1 border-t border-border/40 pt-3 text-xs text-muted-foreground">
-                    <p className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {pd("client")}{" "}
-                      {order.user_first_name
-                        ? `${order.user_first_name} ${order.user_last_name}`.trim()
-                        : "—"}
-                    </p>
-                    {order.user_ci && <p>{pd("ci")} {order.user_ci}</p>}
-                    {order.user_email && <p>{order.user_email}</p>}
-                    <p className="flex items-center gap-1 pt-1">
-                      <ShieldCheck className="h-3 w-3" />
-                      {isAdmin ? pd("adminView") : pd("workshopView")}
-                    </p>
-                  </div>
-                )}
+              </div>
+            )}
+
+            {(!isClient || isWorkshopContext) && (order.user_first_name || order.user_email) && (
+              <div className="ml-card p-5">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                  <User className="h-4 w-4" />
+                  {pd("client")}
+                </h2>
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">
+                    {order.user_first_name
+                      ? `${order.user_first_name} ${order.user_last_name}`.trim()
+                      : "—"}
+                  </p>
+                  {order.user_ci && (
+                    <p className="text-xs text-muted-foreground">{pd("ci")} {order.user_ci}</p>
+                  )}
+                  {order.user_email && (
+                    <p className="text-xs text-muted-foreground">{order.user_email}</p>
+                  )}
+                  {order.user_client_rating != null && (order.user_client_rating_count ?? 0) > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`h-3.5 w-3.5 ${
+                              s <= Math.round(order.user_client_rating ?? 0)
+                                ? "text-yellow-400 fill-current"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {order.user_client_rating?.toFixed(1)} ({order.user_client_rating_count})
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             {order.status === "CLOSED" &&
               order.workshop_id &&
-              isClient &&
               !isWorkshopContext &&
               !order.ratings.client_rated && (
                 <div className="ml-card p-5 border-sky-500/30">
@@ -646,7 +674,7 @@ export function PurchaseDetailPage() {
 
             {order.status === "CLOSED" &&
               order.workshop_id &&
-              isWorkshopOwner &&
+              isWorkshopContext &&
               !order.ratings.workshop_rated && (
                 <div className="ml-card p-5 border-sky-500/30">
                   <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-400">
@@ -703,11 +731,9 @@ export function PurchaseDetailPage() {
                     {pd("confirmReceiptQuestion")}
                   </p>
                   <button
-                    onClick={() => markReceivedMutation.mutate()}
-                    disabled={markReceivedMutation.isPending}
+                    onClick={() => setShowReceiptConfirm(true)}
                     className="ml-btn ml-btn-primary"
                   >
-                    {markReceivedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                     {pd("confirmReceipt")}
                   </button>
                 </div>
@@ -753,29 +779,11 @@ export function PurchaseDetailPage() {
                     </p>
                   )}
                   <button
-                    onClick={() => markReceivedMutation.mutate()}
-                    disabled={markReceivedMutation.isPending}
+                    onClick={() => setShowReceiptConfirm(true)}
                     className="ml-btn ml-btn-primary"
                   >
-                    {markReceivedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                     {pd("confirmReceipt")}
                   </button>
-                </div>
-              )}
-
-            {/* Client: waiting for workshop to close */}
-            {order.closed_by_client &&
-              !order.closed_by_workshop &&
-              isClient &&
-              !isWorkshopContext && (
-                <div className="ml-card p-5 border-sky-500/30">
-                  <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-400">
-                    <CheckCircle2 className="h-4 w-4" />
-                    {pd("receiptConfirmed")}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {pd("waitingWorkshopClose")}
-                  </p>
                 </div>
               )}
 
@@ -861,18 +869,18 @@ export function PurchaseDetailPage() {
                             </span>
                           )}
                         </div>
-                        {installment.status !== "PAID" && installmentsList.length > 1 && (
+                        {installment.status !== "PAID" && installmentsList.length > 1 && index > 0 && (
                           <p className="mt-0.5 text-[11px] text-primary/70">
                             {pd("ptsOnTime", "+{amount} pts", { amount: installment.amount.toFixed(2) })}
                           </p>
                         )}
                         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          {installment.due_date && (
+                          {installment.due_date && installment.status === "PENDING" && (
                             <span>
                               {pd("dueDate")} {new Date(installment.due_date).toLocaleDateString("es-ES")}
                             </span>
                           )}
-                          {installment.status === "PAID" && installment.paid_at && (
+                          {["PAID", "PENDING_VERIFICATION"].includes(installment.status) && installment.paid_at && (
                             <span>
                               {pd("paymentRegistered")}{" "}
                               {new Date(installment.paid_at).toLocaleDateString("es-ES", {
@@ -928,18 +936,20 @@ export function PurchaseDetailPage() {
                         <button
                           onClick={() => {
                             setPayingInstallment(installment);
-                            setPaymentMethod("BANK_TRANSFER");
+                            setPaymentMethod("");
                             setReferenceNumber("");
+                            setPaymentDate(new Date().toISOString().slice(0, 10));
                           }}
                           className="ml-btn ml-btn-primary text-xs py-1.5"
                         >
                           {pd("pay")}
                         </button>
                       )}
-                      {installment.status === "PENDING_VERIFICATION" && (isWorkshopOwner || isAdmin) && (
+                      {installment.status === "PENDING_VERIFICATION" && ((isWorkshopOwner && isWorkshopContext) || isAdmin) && (
                         <button
                           onClick={() => {
                             setPayingInstallment(installment);
+                            setPaymentDate(new Date().toISOString().slice(0, 10));
                           }}
                           className="ml-btn ml-btn-primary text-xs py-1.5"
                         >
@@ -964,10 +974,10 @@ export function PurchaseDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
             <h2 className="text-lg font-semibold tracking-tight">
-              {isClient ? pd("rateWorkshop") : pd("rateBuyer")}
+              {isWorkshopContext ? pd("rateBuyer") : pd("rateWorkshop")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isClient ? order.workshop_name : pd("buyer")}
+              {isWorkshopContext ? pd("buyer") : order.workshop_name}
             </p>
 
             <form
@@ -976,7 +986,7 @@ export function PurchaseDetailPage() {
                 rateMutation.mutate({
                   rating: ratingValue,
                   comment: ratingComment,
-                  targetRole: isClient ? "WORKSHOP" : "CLIENT",
+                  targetRole: isWorkshopContext ? "CLIENT" : "WORKSHOP",
                 });
               }}
               className="mt-6 space-y-4"
@@ -1238,10 +1248,10 @@ export function PurchaseDetailPage() {
                 )}
               </div>
 
-              {paymentMethod !== "CASH" && (
+              {paymentMethod && paymentMethod !== "CASH" && (
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                    {pd("referenceNumberLabel")}
+                    {pd("referenceNumberLabel")} <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="text"
@@ -1318,7 +1328,12 @@ export function PurchaseDetailPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setPayingInstallment(null)}
+                  onClick={() => {
+                    setPayingInstallment(null);
+                    setPaymentMethod("");
+                    setReferenceNumber("");
+                    setPaymentDate(new Date().toISOString().slice(0, 10));
+                  }}
                   disabled={payMutation.isPending}
                   className="ml-btn ml-btn-outline"
                 >
@@ -1326,7 +1341,7 @@ export function PurchaseDetailPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={payMutation.isPending}
+                  disabled={payMutation.isPending || !paymentMethod}
                   className="ml-btn ml-btn-primary"
                 >
                   {payMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1342,12 +1357,19 @@ export function PurchaseDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-lg">
             <h2 className="text-lg font-semibold tracking-tight">{pd("paymentInfo")}</h2>
+            {(() => {
+              const isInitialInstallment = installmentsList.length > 0 && payingInstallment.id === installmentsList[0].id;
+              const effectiveRate = (payingInstallment.rate && payingInstallment.rate > 0)
+                ? payingInstallment.rate
+                : (bcvRate && bcvRate > 0 ? bcvRate : 0);
+              const effectiveRateDate = isInitialInstallment && order?.created_at
+                ? order.created_at
+                : payingInstallment.rate_date;
+              return (
+            <>
             <div className="mt-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
               <p className="text-xs text-muted-foreground">{pd("amount")}</p>
               {(() => {
-                const effectiveRate = (payingInstallment.rate && payingInstallment.rate > 0)
-                  ? payingInstallment.rate
-                  : (bcvRate && bcvRate > 0 ? bcvRate : 0);
                 if (effectiveRate > 0) {
                   return (
                     <>
@@ -1359,9 +1381,9 @@ export function PurchaseDetailPage() {
                       </p>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         {pd("bcvRateLabel", undefined, { rate: effectiveRate.toFixed(2) })}
-                        {payingInstallment.rate_date && (
+                        {effectiveRateDate && (
                           <span className="ml-1">
-                            — {new Date(payingInstallment.rate_date).toLocaleDateString("es-ES")}
+                            — {new Date(effectiveRateDate).toLocaleDateString("es-ES")}
                           </span>
                         )}
                       </p>
@@ -1430,28 +1452,30 @@ export function PurchaseDetailPage() {
                       {formatBcv(payingInstallment.amount, payingInstallment.rate)}
                     </span>
                   </div>
-                  {payingInstallment.rate_date && (
+                  {effectiveRateDate && (
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {pd("rateDate", undefined, { date: new Date(payingInstallment.rate_date).toLocaleDateString("es-ES") })}
+                      {pd("rateDate", undefined, { date: new Date(effectiveRateDate).toLocaleDateString("es-ES") })}
                     </p>
                   )}
                 </div>
               )}
 
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">{pd("paymentDateLabel")}</p>
-                <p className="text-sm">
-                  {payingInstallment.paid_at
-                    ? new Date(payingInstallment.paid_at).toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : pd("noDate")}
-                </p>
-              </div>
+              {!(isInitialInstallment && !payingInstallment.paid_at) && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">{pd("paymentDateLabel")}</p>
+                  <p className="text-sm">
+                    {payingInstallment.paid_at
+                      ? new Date(payingInstallment.paid_at).toLocaleDateString("es-ES", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : pd("noDate")}
+                  </p>
+                </div>
+              )}
 
               <div>
                 <p className="text-xs font-medium text-muted-foreground">{pd("statusLabel")}</p>
@@ -1496,6 +1520,9 @@ export function PurchaseDetailPage() {
                 {t("common.close", "Close")}
               </button>
             </div>
+            </>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1578,6 +1605,34 @@ export function PurchaseDetailPage() {
             >
               {markShippedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               {pd("markAsShipped")}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showReceiptConfirm} onOpenChange={setShowReceiptConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>{pd("confirmReceipt")}</DialogTitle>
+          <DialogDescription>
+            {pd("confirmReceiptQuestion")}
+          </DialogDescription>
+          <DialogFooter>
+            <button
+              onClick={() => setShowReceiptConfirm(false)}
+              className="ml-btn ml-btn-outline"
+            >
+              {t("common.cancel", "Cancelar")}
+            </button>
+            <button
+              onClick={() => {
+                markReceivedMutation.mutate();
+                setShowReceiptConfirm(false);
+              }}
+              disabled={markReceivedMutation.isPending}
+              className="ml-btn ml-btn-primary"
+            >
+              {markReceivedMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {pd("confirmReceipt")}
             </button>
           </DialogFooter>
         </DialogContent>

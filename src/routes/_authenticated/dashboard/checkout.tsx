@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
-import { ArrowLeft, Loader2, ShoppingCart, CreditCard, Store, Wallet, AlertCircle } from "lucide-react";
+import { ArrowLeft, Loader2, ShoppingCart, CreditCard, Store, Wallet, AlertCircle, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "../../../lib/locale-context";
 import {
@@ -41,6 +41,7 @@ function CheckoutPage() {
     Record<string, WorkshopPaymentMethodDTO[]>
   >({});
   const [payContado, setPayContado] = useState<Record<string, boolean>>({});
+  const [currentWorkshopIndex, setCurrentWorkshopIndex] = useState(0);
 
   const { data: cart, isLoading: cartLoading } = useQuery({
     queryKey: ["cart"],
@@ -80,6 +81,9 @@ function CheckoutPage() {
   }, [items]);
 
   const workshopIds = useMemo(() => Object.keys(workshopGroups), [workshopGroups]);
+  const currentWorkshopId = workshopIds[currentWorkshopIndex];
+  const currentGroup = currentWorkshopId ? workshopGroups[currentWorkshopId] : null;
+  const isLastWorkshop = currentWorkshopIndex >= workshopIds.length - 1;
 
   useEffect(() => {
     workshopIds.forEach(async (wid) => {
@@ -115,7 +119,7 @@ function CheckoutPage() {
     return t === "zelle" || t === "zinli";
   };
 
-  const allForeignPayments = workshopIds.every((wid) => isForeignPayment(wid));
+  const isCurrentForeignPayment = currentWorkshopId ? isForeignPayment(currentWorkshopId) : false;
 
   const setConfig = (
     wid: string,
@@ -141,36 +145,37 @@ function CheckoutPage() {
   };
 
   const totals = useMemo(() => {
+    if (!currentGroup) {
+      return { itemsTotal: 0, downPaymentTotal: 0, financedTotal: 0, grandTotal: 0, isContado: true, hasInstallmentItems: false, financedDownPayment: 0, financedAmount: 0, totalPoints: 0 };
+    }
     let itemsTotal = 0;
     let downPaymentTotal = 0;
     let hasInstallmentItems = false;
     let allFullDownPayment = true;
-    let financedDownPayment = 0; // down payment for financed items only (earns points)
-    let financedAmount = 0; // total financed amount (earns points)
-    for (const g of Object.values(workshopGroups)) {
-      for (const item of g.items) {
-        itemsTotal += item.subtotal;
-        if (item.allows_installments) {
-          hasInstallmentItems = true;
-          const isContadoItem =
-            payContado[item.id] ||
-            (downPayments[item.id] ?? item.installment_min_percentage ?? 20) === 100;
-          const pct = isContadoItem
-            ? 100
-            : (downPayments[item.id] ?? item.installment_min_percentage ?? 20);
-          downPaymentTotal += (item.subtotal * pct) / 100;
-          if (pct < 100) {
-            allFullDownPayment = false;
-            financedDownPayment += (item.subtotal * pct) / 100;
-            financedAmount += item.subtotal - (item.subtotal * pct) / 100;
-          }
-        } else {
+    let financedDownPayment = 0;
+    let financedAmount = 0;
+    for (const item of currentGroup.items) {
+      itemsTotal += item.subtotal;
+      if (item.allows_installments) {
+        hasInstallmentItems = true;
+        const isContadoItem =
+          payContado[item.id] ||
+          (downPayments[item.id] ?? item.installment_min_percentage ?? 20) === 100;
+        const pct = isContadoItem
+          ? 100
+          : (downPayments[item.id] ?? item.installment_min_percentage ?? 20);
+        downPaymentTotal += (item.subtotal * pct) / 100;
+        if (pct < 100) {
           allFullDownPayment = false;
+          financedDownPayment += (item.subtotal * pct) / 100;
+          financedAmount += item.subtotal - (item.subtotal * pct) / 100;
         }
+      } else {
+        downPaymentTotal += item.subtotal;
       }
     }
     const isContado = !hasInstallmentItems || allFullDownPayment;
-    const totalPoints = financedDownPayment + financedAmount; // only financed items earn points
+    const totalPoints = financedDownPayment + financedAmount;
     return {
       itemsTotal,
       downPaymentTotal,
@@ -182,41 +187,48 @@ function CheckoutPage() {
       financedAmount,
       totalPoints,
     };
-  }, [workshopGroups, downPayments, payContado]);
+  }, [currentGroup, downPayments, payContado]);
 
   const checkoutMutation = useMutation({
-    mutationFn: () =>
-      checkout({
+    mutationFn: () => {
+      if (!currentWorkshopId || !currentGroup) throw new Error("No workshop selected");
+      const cfg = getConfig(currentWorkshopId);
+      return checkout({
         vehicle_id: firstVehicleId || undefined,
-        workshops: Object.entries(workshopGroups).map(([wid, group]) => {
-          const cfg = getConfig(wid);
-          return {
-            workshop_id: wid,
+        workshops: [
+          {
+            workshop_id: currentWorkshopId,
             delivery_method: cfg.deliveryMethod,
             delivery_address: cfg.deliveryMethod === "SHIPPING" ? cfg.deliveryAddress : null,
             reference_number: cfg.referenceNumber,
             payment_method_id: cfg.paymentMethodId || undefined,
-            items: group.items.map((item) => {
+            items: currentGroup.items.map((item) => {
               const isContado = !item.allows_installments || payContado[item.id] || (downPayments[item.id] ?? 0) === 100;
               return {
                 cart_item_id: item.id,
                 down_payment_percentage: isContado ? 100 : (downPayments[item.id] ?? item.installment_min_percentage ?? 20),
               };
             }),
-          };
-        }),
-      }),
+          },
+        ],
+      });
+    },
     onSuccess: (orders) => {
       queryClient.invalidateQueries({ queryKey: ["cart"] });
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
-      toast.success(t("checkout.success"));
-      if (orders.length === 1 && orders[0]?.id) {
-        navigate({
-          to: "/dashboard/purchases/$purchaseId",
-          params: { purchaseId: orders[0].id },
-        });
+      if (isLastWorkshop) {
+        toast.success(t("checkout.success"));
+        if (orders.length === 1 && orders[0]?.id) {
+          navigate({
+            to: "/dashboard/purchases/$purchaseId",
+            params: { purchaseId: orders[0].id },
+          });
+        } else {
+          navigate({ to: "/dashboard/purchases" });
+        }
       } else {
-        navigate({ to: "/dashboard/purchases" });
+        toast.success(t("checkout.workshopCompleted", "", { name: currentGroup?.workshop_name ?? "" }));
+        setCurrentWorkshopIndex((prev) => prev + 1);
       }
     },
     onError: (err: any) => {
@@ -258,15 +270,14 @@ function CheckoutPage() {
   }
 
   const isFormValid = () => {
-    for (const [wid, group] of Object.entries(workshopGroups)) {
-      const cfg = getConfig(wid);
-      if (cfg.deliveryMethod === "SHIPPING" && !cfg.deliveryAddress.trim()) return false;
-      const methods = paymentMethodsMap[wid] ?? [];
-      if (methods.length === 0) return false;
-      if (!cfg.paymentMethodId) return false;
-      if (!isCashPayment(wid) && !cfg.referenceNumber.trim()) return false;
-    }
-    return items.length > 0;
+    if (!currentWorkshopId || !currentGroup) return false;
+    const cfg = getConfig(currentWorkshopId);
+    if (cfg.deliveryMethod === "SHIPPING" && !cfg.deliveryAddress.trim()) return false;
+    const methods = paymentMethodsMap[currentWorkshopId] ?? [];
+    if (methods.length === 0) return false;
+    if (!cfg.paymentMethodId) return false;
+    if (!isCashPayment(currentWorkshopId) && !cfg.referenceNumber.trim()) return false;
+    return currentGroup.items.length > 0;
   };
 
   return (
@@ -286,9 +297,37 @@ function CheckoutPage() {
         </p>
       </div>
 
+      {workshopIds.length > 1 && (
+        <div className="mb-6 flex items-center gap-1">
+          {workshopIds.map((wid, i) => (
+            <div key={wid} className="flex items-center gap-1">
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                  i < currentWorkshopIndex
+                    ? "bg-emerald-500 text-white"
+                    : i === currentWorkshopIndex
+                      ? "bg-primary text-primary-foreground scale-110"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {i < currentWorkshopIndex ? <Check className="h-3.5 w-3.5" /> : i + 1}
+              </div>
+              {i < workshopIds.length - 1 && (
+                <div className={`h-px w-6 ${i < currentWorkshopIndex ? "bg-emerald-500" : "bg-border"}`} />
+              )}
+            </div>
+          ))}
+          <span className="ml-3 text-sm font-medium text-muted-foreground">
+            {t("checkout.workshopStep", "", { current: currentWorkshopIndex + 1, total: workshopIds.length })}
+          </span>
+        </div>
+      )}
+
       <div className="grid gap-8 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
-          {Object.entries(workshopGroups).map(([workshopId, group]) => {
+          {currentWorkshopId && currentGroup && (() => {
+            const workshopId = currentWorkshopId;
+            const group = currentGroup;
             const cfg = getConfig(workshopId);
             const paymentMethods = paymentMethodsMap[workshopId] ?? [];
             return (
@@ -734,7 +773,7 @@ function CheckoutPage() {
                 </div>
               </div>
             );
-          })}
+          })()}
         </div>
 
         <div className="lg:col-span-2">
@@ -743,13 +782,13 @@ function CheckoutPage() {
               <h2 className="mb-4 text-sm font-semibold">{t("checkout.summary")}</h2>
 
               <div className="space-y-3">
-                {Object.entries(workshopGroups).map(([workshopId, group]) => (
-                  <div key={workshopId}>
+                {currentGroup && (
+                  <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                       <Store className="h-3 w-3" />
-                      {group.workshop_name}
+                      {currentGroup.workshop_name}
                     </p>
-                    {group.items.map((item) => (
+                    {currentGroup.items.map((item) => (
                       <div key={item.id} className="flex justify-between text-sm ml-4">
                         <span className="text-muted-foreground">
                           {item.part_name} × {item.quantity}
@@ -758,7 +797,7 @@ function CheckoutPage() {
                       </div>
                     ))}
                   </div>
-                ))}
+                )}
               </div>
 
               <div className="mt-4 space-y-2 border-t border-border pt-4">
@@ -858,7 +897,7 @@ function CheckoutPage() {
                     <span className="font-mono text-lg font-bold text-primary">
                       ${(totals.isContado ? totals.itemsTotal : totals.downPaymentTotal).toFixed(2)}
                     </span>
-                    {bcvRate && bcvRate > 0 && !allForeignPayments && (
+                    {bcvRate && bcvRate > 0 && !isCurrentForeignPayment && (
                       <p className="font-mono text-xs text-primary/70">
                         {formatBcv(
                           totals.isContado ? totals.itemsTotal : totals.downPaymentTotal,
@@ -886,13 +925,18 @@ function CheckoutPage() {
                         ? totals.itemsTotal
                         : totals.downPaymentTotal;
                       const bcvDisplay =
-                        bcvRate && bcvRate > 0 && !allForeignPayments ? ` (${formatBcv(payNowUsd, bcvRate)})` : "";
+                        bcvRate && bcvRate > 0 && !isCurrentForeignPayment ? ` (${formatBcv(payNowUsd, bcvRate)})` : "";
                       return `${t("checkout.payNow")} — $${payNowUsd.toFixed(2)}${bcvDisplay}`;
                     })()}
               </button>
               {!totals.isContado && totals.hasInstallmentItems && (
                 <p className="text-center text-xs text-muted-foreground">
                   {t("checkout.payToday", "", { amount: totals.downPaymentTotal.toFixed(2), installment: (totals.financedTotal / 3).toFixed(2) })}
+                </p>
+              )}
+              {workshopIds.length > 1 && !isLastWorkshop && (
+                <p className="text-center text-xs text-primary/70 font-medium">
+                  {t("checkout.workshopStep", "", { current: currentWorkshopIndex + 1, total: workshopIds.length })} · {currentGroup?.workshop_name}
                 </p>
               )}
             </div>

@@ -250,10 +250,12 @@ function AuthorizedWorkshopsView() {
       setFormError(t("myWorkshops.nameMinLength"));
       return;
     }
-    const rif = `${formRifPrefix}-${formRifDigits}-${formRifCheck}`;
-    if (!/^[VEJPG]-\d{8}-\d$/i.test(rif)) {
-      setFormError(t("myWorkshops.invalidRif"));
-      return;
+    if (!editingId) {
+      const rif = `${formRifPrefix}-${formRifDigits}-${formRifCheck}`;
+      if (!/^[VEJPG]-\d{8}-\d$/i.test(rif)) {
+        setFormError(t("myWorkshops.invalidRif"));
+        return;
+      }
     }
     if (!formAddress.trim() || formAddress.trim().length < 5) {
       setFormError(t("myWorkshops.addressMinLength"));
@@ -265,6 +267,7 @@ function AuthorizedWorkshopsView() {
       if (formPhoto) input.photo = formPhoto;
       updateMutation.mutate({ id: editingId, input });
     } else {
+      const rif = `${formRifPrefix}-${formRifDigits}-${formRifCheck}`;
       const input: Parameters<typeof createWorkshop>[0] = {
         name: formName,
         rif,
@@ -375,7 +378,8 @@ function AuthorizedWorkshopsView() {
                     <select
                       value={formRifPrefix}
                       onChange={(e) => setFormRifPrefix(e.target.value)}
-                      className="w-20 shrink-0 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      disabled={!!editingId}
+                      className="w-20 shrink-0 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all disabled:opacity-60"
                     >
                       {RIF_PREFIXES.map((p) => (
                         <option key={p} value={p}>
@@ -385,25 +389,25 @@ function AuthorizedWorkshopsView() {
                     </select>
                     <span className="flex items-center text-muted-foreground">-</span>
                     <input
-                      className={inputBase}
+                      className={`${inputBase} ${editingId ? "opacity-60" : ""}`}
                       value={formRifDigits}
                       onChange={(e) =>
                         setFormRifDigits(e.target.value.replace(/\D/g, "").slice(0, 8))
                       }
                       placeholder="12345678"
                       maxLength={8}
-                      required
+                      disabled={!!editingId}
                     />
                     <span className="flex items-center text-muted-foreground">-</span>
                     <input
-                      className={`${inputBase} w-14`}
+                      className={`${inputBase} w-14 ${editingId ? "opacity-60" : ""}`}
                       value={formRifCheck}
                       onChange={(e) =>
                         setFormRifCheck(e.target.value.replace(/\D/g, "").slice(0, 1))
                       }
                       placeholder="9"
                       maxLength={1}
-                      required
+                      disabled={!!editingId}
                     />
                   </div>
                 </div>

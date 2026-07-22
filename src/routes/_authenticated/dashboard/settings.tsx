@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import type { AxiosError } from "axios";
+import { toast } from "sonner";
 import {
   Loader2,
   Shield,
@@ -180,7 +181,6 @@ function SettingsPage() {
   const [supportTypeOpen, setSupportTypeOpen] = useState(false);
   const [supportRelatedOrder, setSupportRelatedOrder] = useState("");
   const [supportOrderOpen, setSupportOrderOpen] = useState(false);
-  const [supportSent, setSupportSent] = useState(false);
   const [twoFASecret, setTwoFASecret] = useState<string | null>(null);
   const [twoFAUri, setTwoFAUri] = useState<string | null>(null);
   const [twoFACode, setTwoFACode] = useState("");
@@ -337,12 +337,15 @@ function SettingsPage() {
         related_order_id: supportRelatedOrder ? supportRelatedOrder.split(":")[1] : undefined,
       }),
     onSuccess: () => {
-      setSupportSent(true);
+      toast.success(t("support.sent"));
+      setShowSupportModal(false);
       setSupportSubject("");
       setSupportMessage("");
       setSupportType("OTHER");
       setSupportRelatedOrder("");
-      setTimeout(() => setSupportSent(false), 3000);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.detail ?? err?.message ?? t("support.error"));
     },
   });
 
@@ -896,16 +899,6 @@ function SettingsPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-
-            {supportSent && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                <div>
-                  <p className="text-sm font-medium text-emerald-500">{t("support.sent")}</p>
-                  <p className="text-xs text-muted-foreground">{t("support.sentDesc")}</p>
-                </div>
-              </div>
-            )}
 
             <form
               onSubmit={(e) => {

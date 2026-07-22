@@ -44,6 +44,8 @@ import {
   XCircle,
   CheckCircle2,
   Headphones,
+  Star,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "../../../lib/auth-context";
 import { getToken, decodeJwt } from "../../../lib/token";
@@ -321,6 +323,8 @@ function UsersTab() {
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editCi, setEditCi] = useState("");
   const [editRoles, setEditRoles] = useState<string[]>([]);
 
   const [confirmSuspendUser, setConfirmSuspendUser] = useState<AdminUser | null>(null);
@@ -394,11 +398,13 @@ function UsersTab() {
     setEditFirstName(user.first_name);
     setEditLastName(user.last_name);
     setEditPhone(user.phone ?? "");
+    setEditEmail(user.email ?? "");
+    setEditCi(user.ci ?? "");
     setEditRoles([...user.roles]);
   }
 
   function toggleRole(role: string) {
-    if (role === "ADMIN") return;
+    if (role === "ADMIN" && !isSuperadmin) return;
     setEditRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role],
     );
@@ -625,6 +631,32 @@ function UsersTab() {
                   placeholder="04141234567"
                 />
               </div>
+              {isSuperadmin && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    {t("admin.email")}
+                  </label>
+                  <input
+                    className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="email@ejemplo.com"
+                  />
+                </div>
+              )}
+              {isSuperadmin && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    {t("admin.ci")}
+                  </label>
+                  <input
+                    className="block w-full rounded-md border border-border bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-border-strong focus:outline-none focus:ring-1 focus:ring-border-strong"
+                    value={editCi}
+                    onChange={(e) => setEditCi(e.target.value)}
+                    placeholder="V-12345678"
+                  />
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   {t("admin.users.roles")}
@@ -673,6 +705,10 @@ function UsersTab() {
                     input.last_name = editLastName.trim();
                   if (editPhone.trim() !== (editingUser.phone ?? ""))
                     input.phone = editPhone.trim();
+                  if (isSuperadmin && editEmail.trim() !== (editingUser.email ?? ""))
+                    input.email = editEmail.trim();
+                  if (isSuperadmin && editCi.trim() !== (editingUser.ci ?? ""))
+                    input.ci = editCi.trim();
                   const sortedRoles = [...editRoles].sort();
                   const origRoles = [...editingUser.roles].sort();
                   if (JSON.stringify(sortedRoles) !== JSON.stringify(origRoles))
@@ -2266,6 +2302,7 @@ function CreditLinesTable() {
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
               <th className="px-4 py-3 font-medium">{t("admin.credit.user")}</th>
+              <th className="px-4 py-3 font-medium">{t("admin.users.rating")}</th>
               <th className="px-4 py-3 font-medium">{t("admin.credit.level")}</th>
               <th className="px-4 py-3 font-medium">{t("admin.credit.points")}</th>
               <th className="px-4 py-3 font-medium">{t("admin.credit.partsLimit")}</th>
@@ -2284,6 +2321,39 @@ function CreditLinesTable() {
                 <td className="px-4 py-3">
                   <div className="font-medium">{u.user_name}</div>
                   <div className="text-xs text-muted-foreground">{u.user_email}</div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {u.user_roles?.map((r) => (
+                      <span
+                        key={r}
+                        className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                      >
+                        {r === "ADMIN" ? t("admin.users.roleAdmin") : r === "SUPERADMIN" ? t("admin.users.roleSuperadmin") : r === "WORKSHOP_OWNER" ? t("admin.users.roleWorkshopOwner") : t("admin.users.roleClient")}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {u.client_rating_count > 0 ? (
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`h-3 w-3 ${
+                              s <= Math.round(u.client_average_rating)
+                                ? "text-yellow-400 fill-current"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {u.client_average_rating.toFixed(1)} ({u.client_rating_count})
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/50">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${levelBadge(u.level)}`}>

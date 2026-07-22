@@ -280,6 +280,8 @@ export type OrderDTO = {
   user_last_name?: string;
   user_ci?: string;
   user_email?: string;
+  user_client_rating?: number | null;
+  user_client_rating_count?: number | null;
   delivery_method?: string;
   delivery_address?: string | null;
   delivery_fee?: number;
@@ -1282,6 +1284,8 @@ export type AdminUser = {
   phone: string | null;
   photo_url: string | null;
   is_suspended: number;
+  client_average_rating: number;
+  client_rating_count: number;
   created_at: string;
 };
 
@@ -1305,6 +1309,8 @@ export type AdminUpdateUserInput = {
   first_name?: string;
   last_name?: string;
   phone?: string;
+  email?: string;
+  ci?: string;
   roles?: string[];
   is_suspended?: number;
 };
@@ -1581,6 +1587,7 @@ export type AdminCreditLine = {
   user_id: string;
   user_name: string;
   user_email: string;
+  user_roles: string[];
   level: number;
   credit_points: number;
   points_to_next_level: number | null;
@@ -1602,6 +1609,8 @@ export type AdminCreditLine = {
   service_installments_on_time: number;
   service_installments_late: number;
   manual_adjustment: number | null;
+  client_average_rating: number;
+  client_rating_count: number;
 };
 
 export type CheckoutEligibility = {
